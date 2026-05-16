@@ -1,6 +1,7 @@
 import requests
 import random
 import re
+import os
 
 def clean_text(text):
     """Removes URLs and weird characters that TTS might struggle with."""
@@ -10,7 +11,8 @@ def clean_text(text):
 
 def get_reddit_story():
     """
-    Scrapes a popular post from a random viral subreddit using Reddit's public JSON API.
+    Scrapes a popular post from a random viral subreddit using Reddit's API.
+    Uses OAuth2 if REDDIT_CLIENT_ID and REDDIT_CLIENT_SECRET are provided.
     Returns a tuple: (title, story_text)
     """
     subreddits = [
@@ -23,6 +25,22 @@ def get_reddit_story():
         'User-Agent': 'python:yt_automater_bot:v1.0 (by /u/automation)'
     }
     
+    # Try to authenticate using OAuth2 if credentials are provided via GitHub Secrets
+    client_id = os.environ.get('REDDIT_CLIENT_ID')
+    client_secret = os.environ.get('REDDIT_CLIENT_SECRET')
+    access_token = None
+    
+    if client_id and client_secret:
+        try:
+            client_auth = requests.auth.HTTPBasicAuth(client_id, client_secret)
+            post_data = {"grant_type": "client_credentials"}
+            res = requests.post("https://www.reddit.com/api/v1/access_token", auth=client_auth, data=post_data, headers=headers)
+            res.raise_for_status()
+            access_token = res.json().get('access_token')
+            print("Successfully obtained Reddit API OAuth access token.")
+        except Exception as e:
+            print(f"Failed to authenticate with Reddit API: {e}")
+            
     # Words that usually indicate a sad vent rather than an entertaining story
     boring_keywords = ['tired', 'depressed', 'suicide', 'kill myself', 'give up', 'sad', 'crying', 'lonely']
     
@@ -32,10 +50,16 @@ def get_reddit_story():
         timeframe = random.choice(["day", "week", "month", "year", "all"])
         
         print(f"Attempt {attempt+1}: Fetching from r/{subreddit} (Top of the {timeframe})...")
-        url = f"https://www.reddit.com/r/{subreddit}/top.json?limit=100&t={timeframe}"
+        
+        req_headers = headers.copy()
+        if access_token:
+            url = f"https://oauth.reddit.com/r/{subreddit}/top.json?limit=100&t={timeframe}"
+            req_headers['Authorization'] = f"bearer {access_token}"
+        else:
+            url = f"https://www.reddit.com/r/{subreddit}/top.json?limit=100&t={timeframe}"
         
         try:
-            response = requests.get(url, headers=headers)
+            response = requests.get(url, headers=req_headers)
             response.raise_for_status()
             data = response.json()
             
