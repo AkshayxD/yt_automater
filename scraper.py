@@ -15,9 +15,10 @@ def get_reddit_story():
     """
     subreddits = ["pettyrevenge", "confession", "tifu", "EntitledParents"]
     subreddit = random.choice(subreddits)
+    timeframe = random.choice(["day", "week", "month", "year", "all"])
     
-    print(f"Fetching story from r/{subreddit}...")
-    url = f"https://www.reddit.com/r/{subreddit}/top.json?limit=100&t=week"
+    print(f"Fetching story from r/{subreddit} (Top of the {timeframe})...")
+    url = f"https://www.reddit.com/r/{subreddit}/top.json?limit=100&t={timeframe}"
     
     # Reddit blocks default python requests user-agents, so we spoof one.
     headers = {
@@ -47,9 +48,9 @@ def get_reddit_story():
                     continue
                     
                 word_count = len(body.split())
-                # Shorts should ideally be around 100-155 words max to fit in 60s
+                # Shorts should ideally be around 60-175 words max to fit in 60s
                 # We filter out longer stories so we NEVER have to cut them off abruptly.
-                if 80 < word_count < 155:
+                if 60 < word_count < 175:
                     valid_posts.append(post_data)
         
         if not valid_posts:
