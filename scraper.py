@@ -1,7 +1,8 @@
 import requests
 import random
 import re
-import os
+import html
+import xml.etree.ElementTree as ET
 
 def clean_text(text):
     """Removes URLs and weird characters that TTS might struggle with."""
@@ -11,8 +12,8 @@ def clean_text(text):
 
 def get_reddit_story():
     """
-    Scrapes a popular post from a random viral subreddit using Reddit's API.
-    Uses OAuth2 if REDDIT_CLIENT_ID and REDDIT_CLIENT_SECRET are provided.
+    Scrapes a popular post from a random viral subreddit using Reddit's RSS Feeds.
+    This completely bypasses the 403 blocks on GitHub Actions without needing API keys!
     Returns a tuple: (title, story_text)
     """
     subreddits = [
@@ -20,26 +21,10 @@ def get_reddit_story():
         "TrueOffMyChest", "AmItheAsshole", "MaliciousCompliance", "NuclearRevenge"
     ]
     
-    # We must use a descriptive bot User-Agent as per Reddit's API guidelines to avoid 403 errors.
+    # We must use a descriptive bot User-Agent
     headers = {
-        'User-Agent': 'python:yt_automater_bot:v1.0 (by /u/automation)'
+        'User-Agent': 'python:yt_automater_bot:v2.0 (by /u/automation)'
     }
-    
-    # Try to authenticate using OAuth2 if credentials are provided via GitHub Secrets
-    client_id = os.environ.get('REDDIT_CLIENT_ID')
-    client_secret = os.environ.get('REDDIT_CLIENT_SECRET')
-    access_token = None
-    
-    if client_id and client_secret:
-        try:
-            client_auth = requests.auth.HTTPBasicAuth(client_id, client_secret)
-            post_data = {"grant_type": "client_credentials"}
-            res = requests.post("https://www.reddit.com/api/v1/access_token", auth=client_auth, data=post_data, headers=headers)
-            res.raise_for_status()
-            access_token = res.json().get('access_token')
-            print("Successfully obtained Reddit API OAuth access token.")
-        except Exception as e:
-            print(f"Failed to authenticate with Reddit API: {e}")
             
     # Words that usually indicate a sad vent rather than an entertaining story
     boring_keywords = ['tired', 'depressed', 'suicide', 'kill myself', 'give up', 'sad', 'crying', 'lonely']
@@ -49,42 +34,50 @@ def get_reddit_story():
         subreddit = random.choice(subreddits)
         timeframe = random.choice(["day", "week", "month", "year", "all"])
         
-        print(f"Attempt {attempt+1}: Fetching from r/{subreddit} (Top of the {timeframe})...")
+        print(f"Attempt {attempt+1}: Fetching from r/{subreddit} (Top of the {timeframe}) via RSS...")
         
-        req_headers = headers.copy()
-        if access_token:
-            url = f"https://oauth.reddit.com/r/{subreddit}/top.json?limit=100&t={timeframe}"
-            req_headers['Authorization'] = f"bearer {access_token}"
-        else:
-            url = f"https://www.reddit.com/r/{subreddit}/top.json?limit=100&t={timeframe}"
+        url = f"https://www.reddit.com/r/{subreddit}/top/.rss?t={timeframe}"
         
         try:
-            response = requests.get(url, headers=req_headers)
+            response = requests.get(url, headers=headers)
             response.raise_for_status()
-            data = response.json()
             
-            posts = data['data']['children']
+            # Parse XML
+            root = ET.fromstring(response.content)
+            ns = {'atom': 'http://www.w3.org/2005/Atom'}
+            
             valid_posts = []
             
-            for post in posts:
-                post_data = post['data']
-                if post_data.get('selftext'):
-                    body = post_data['selftext'].lower()
-                    title = post_data['title'].lower()
+            for entry in root.findall('atom:entry', ns):
+                title = entry.find('atom:title', ns).text
+                content_elem = entry.find('atom:content', ns)
+                
+                if content_elem is not None and content_elem.text:
+                    body_html = html.unescape(content_elem.text)
                     
-                    if any(word in body for word in boring_keywords) or any(word in title for word in boring_keywords):
+                    # Strip HTML tags
+                    body_text = re.sub(r'<[^>]+>', ' ', body_html)
+                    # Collapse multiple spaces
+                    body_text = re.sub(r'\s+', ' ', body_text)
+                    # Strip RSS footer (submitted by /u/... [link] [comments])
+                    body_text = re.sub(r'submitted by /u/\S+ \[link\] \[comments\]', '', body_text).strip()
+                    
+                    body_lower = body_text.lower()
+                    title_lower = title.lower()
+                    
+                    if any(word in body_lower for word in boring_keywords) or any(word in title_lower for word in boring_keywords):
                         continue
                         
-                    word_count = len(body.split())
-                    # Increase minimum to 115 words so the story feels "full" (approx 40-55 seconds)
+                    word_count = len(body_text.split())
+                    # Minimum 115 words so the story feels "full" (approx 40-55 seconds)
                     if 115 < word_count < 175:
-                        valid_posts.append(post_data)
+                        valid_posts.append({'title': title, 'body': body_text})
             
             if valid_posts:
                 chosen = random.choice(valid_posts)
-                title = clean_text(chosen['title'])
-                body = clean_text(chosen['selftext'])
-                return title, body
+                final_title = clean_text(chosen['title'])
+                final_body = clean_text(chosen['body'])
+                return final_title, final_body
                 
         except Exception as e:
             print(f"Error fetching from Reddit on attempt {attempt+1}: {e}")
