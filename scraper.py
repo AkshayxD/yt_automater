@@ -20,9 +20,10 @@ def get_reddit_story():
     print(f"Fetching story from r/{subreddit} (Top of the {timeframe})...")
     url = f"https://www.reddit.com/r/{subreddit}/top.json?limit=100&t={timeframe}"
     
-    # Reddit blocks default python requests user-agents, so we spoof one.
+    # Reddit aggressively blocks fake browser user-agents from cloud IPs.
+    # We must use a descriptive bot User-Agent as per Reddit's API guidelines to avoid 403 errors.
     headers = {
-        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
+        'User-Agent': 'python:yt_automater_bot:v1.0 (by /u/automation)'
     }
     
     # Words that usually indicate a sad vent rather than an entertaining story
