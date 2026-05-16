@@ -91,7 +91,7 @@ def create_and_upload_viral_short():
             description=description,
             category_id="22", # People & Blogs
             keywords=tags,
-            privacy_status="private" # Keep private until reviewed
+            privacy_status="public" # Upload directly to public
         )
         
         # Move to uploaded
