@@ -1,0 +1,19 @@
+# Secrets
+client_secret.json
+token.pickle
+token_base64.txt
+
+# Environment and Cache
+__pycache__/
+*.pyc
+.env
+venv/
+env/
+
+# Video Files
+temp/
+videos_to_upload/
+uploaded_videos/
+assets/
+
+# (We are not pushing the assets folder because the GitHub Action downloads the video dynamically using yt-dlp to save repo space)
