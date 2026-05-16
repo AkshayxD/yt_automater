@@ -32,13 +32,6 @@ jobs:
       run: |
         python -m pip install --upgrade pip
         pip install -r requirements.txt
-        pip install yt-dlp
-
-    - name: Prepare Assets (Download Background Video)
-      run: |
-        mkdir -p assets
-        # Download a short, copyright-free background video dynamically to avoid bloating the repo
-        yt-dlp "ytsearch1:no copyright minecraft parkour gameplay short" -f "bestvideo[ext=mp4]+bestaudio[ext=m4a]/mp4" -o "assets/background.mp4"
 
     - name: Run Bot Pipeline
       env:

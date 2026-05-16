@@ -14,6 +14,7 @@ env/
 temp/
 videos_to_upload/
 uploaded_videos/
-assets/
+assets/*
+!assets/background_small.mp4
 
-# (We are not pushing the assets folder because the GitHub Action downloads the video dynamically using yt-dlp to save repo space)
+# (We upload the small compressed background video because yt-dlp is blocked by YouTube's bot detection on GitHub Actions)
