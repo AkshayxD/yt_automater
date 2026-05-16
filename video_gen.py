@@ -39,7 +39,7 @@ def parse_vtt(vtt_file):
         
     return subs
 
-def create_video(audio_path, vtt_path, background_path="assets/background.mp4", output_path="final_video.mp4"):
+def create_video(audio_path, vtt_path, background_path="assets/background_small.mp4", output_path="final_video.mp4"):
     """
     Assembles the final video by combining background, audio, and captions.
     """

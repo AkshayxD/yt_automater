@@ -60,7 +60,7 @@ def create_and_upload_viral_short():
     final_video_path = os.path.join(VIDEOS_DIR, f"{safe_title_underscored}.mp4")
     
     # Using a background video if present, otherwise it generates black background
-    bg_video = os.path.join(ASSETS_DIR, "background.mp4")
+    bg_video = os.path.join(ASSETS_DIR, "background_small.mp4")
     
     try:
         rendered_video = create_video(mp3_path, vtt_path, background_path=bg_video, output_path=final_video_path)
