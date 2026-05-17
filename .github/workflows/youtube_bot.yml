@@ -45,6 +45,17 @@ jobs:
         restore-keys: |
           upload-history-
 
+    - name: Cache background assets
+      uses: actions/cache@v3
+      id: cache-bg
+      with:
+        path: assets
+        key: bg-assets-v1
+
+    - name: Download satisfying background videos
+      run: |
+        python download_backgrounds.py
+
     - name: Run Bot Pipeline
       env:
         # Pulls the secret base64 token you set in GitHub Repo Settings
