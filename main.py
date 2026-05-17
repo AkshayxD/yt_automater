@@ -1,110 +1,350 @@
 import os
+import sys
+import re
+import json
 import shutil
 import time
-from scraper import get_reddit_story
+import random
+from datetime import datetime
+
+# Fix Windows console encoding for emoji in log output
+if sys.stdout.encoding != 'utf-8':
+    sys.stdout.reconfigure(encoding='utf-8', errors='replace')
+    sys.stderr.reconfigure(encoding='utf-8', errors='replace')
+from scraper import get_reddit_story, VIRAL_KEYWORDS
 from audio_gen import generate_audio_and_subs
 from video_gen import create_video
 from youtube_api import get_authenticated_service
 from uploader import upload_video
 
-# Directories
+# --- Directories ---
 VIDEOS_DIR = "videos_to_upload"
 UPLOADED_DIR = "uploaded_videos"
 TEMP_DIR = "temp"
 ASSETS_DIR = "assets"
+
+# --- Configuration ---
+NUM_VIDEOS = int(os.environ.get("NUM_VIDEOS", "1"))  # How many videos per run
+UPLOAD_COOLDOWN = 300  # 5 minutes between uploads to avoid spam flags
+HISTORY_FILE = "upload_history.json"
+
 
 def setup_directories():
     """Creates necessary directories if they don't exist."""
     for d in [VIDEOS_DIR, UPLOADED_DIR, TEMP_DIR, ASSETS_DIR]:
         os.makedirs(d, exist_ok=True)
 
-def create_and_upload_viral_short():
-    """The main pipeline: generate script -> voice -> video -> upload."""
-    setup_directories()
+
+def load_upload_history():
+    """Loads the upload history to prevent duplicate stories."""
+    if os.path.exists(HISTORY_FILE):
+        try:
+            with open(HISTORY_FILE, 'r', encoding='utf-8') as f:
+                return json.load(f)
+        except (json.JSONDecodeError, IOError):
+            return {"uploaded_titles": [], "videos": []}
+    return {"uploaded_titles": [], "videos": []}
+
+
+def save_upload_history(history):
+    """Saves the upload history."""
+    # Keep only the last 500 entries to prevent the file from growing forever
+    history["uploaded_titles"] = history["uploaded_titles"][-500:]
+    history["videos"] = history["videos"][-500:]
+    with open(HISTORY_FILE, 'w', encoding='utf-8') as f:
+        json.dump(history, f, indent=2, ensure_ascii=False)
+
+
+def is_duplicate(title, history):
+    """Checks if a story has already been uploaded."""
+    # Normalize for comparison
+    normalized = title.lower().strip()
+    for prev_title in history.get("uploaded_titles", []):
+        if normalized == prev_title.lower().strip():
+            return True
+        # Also check for high similarity (e.g., slight wording differences)
+        if len(normalized) > 20 and normalized[:20] == prev_title.lower().strip()[:20]:
+            return True
+    return False
+
+
+def generate_viral_metadata(title, body, subreddit):
+    """
+    Generates SEO-optimized metadata designed for maximum reach.
     
-    print("\n" + "="*50)
-    print("STARTING VIRAL SHORT GENERATION PIPELINE")
-    print("="*50 + "\n")
+    Returns: (short_title, description, tags)
+    """
+    # --- TITLE ---
+    # Short, curiosity-driven, under 60 chars, NO #shorts in title
+    # Try to extract the most dramatic phrase
+
+    # Strategy 1: If title has a question, use it directly (shortened)
+    if '?' in title and len(title) < 60:
+        short_title = title
+    else:
+        # Strategy 2: Create a curiosity gap from the title
+        # Truncate at a natural break point
+        short_title = title[:57]
+        # Try to cut at a word boundary
+        last_space = short_title.rfind(' ')
+        if last_space > 30:
+            short_title = short_title[:last_space]
+
+        # Add an emotional hook if the title feels flat
+        if not any(c in short_title for c in '?!'):
+            # Check for dramatic keywords and add emphasis
+            short_title_lower = short_title.lower()
+            for kw in ['caught', 'fired', 'revenge', 'karma', 'exposed', 'cheating']:
+                if kw in short_title_lower:
+                    short_title += " 😱"
+                    break
+            else:
+                short_title += "..."
+
+    # Ensure we're under 60 chars
+    if len(short_title) > 60:
+        short_title = short_title[:57] + "..."
+
+    # --- DESCRIPTION ---
+    # Hook line + hashtags + CTA
+    # Extract first compelling sentence from the body
+    first_sentence = body.split('.')[0].strip() if body else ""
+    if len(first_sentence) > 150:
+        first_sentence = first_sentence[:147] + "..."
+
+    # Map subreddits to relevant hashtags
+    subreddit_hashtags = {
+        "pettyrevenge": "#Revenge #PettyRevenge",
+        "prorevenge": "#Revenge #ProRevenge #Justice",
+        "nuclearrevenge": "#Revenge #NuclearRevenge #Justice",
+        "maliciouscompliance": "#MaliciousCompliance #Revenge",
+        "confession": "#Confession #StoryTime",
+        "tifu": "#TIFU #FunnyStory",
+        "entitledparents": "#EntitledParents #Karen",
+        "trueoffmychest": "#TrueOffMyChest #Confession",
+        "amitheasshole": "#AITA #AmITheAsshole",
+        "choosingbeggars": "#ChoosingBeggars #Entitled",
+        "idontworkherelady": "#IDontWorkHereLady #Karen",
+        "relationships": "#Relationships #Drama",
+        "neighborsfromhell": "#BadNeighbors #Neighbors",
+        "bestofredditorupdates": "#RedditUpdates #StoryTime",
+    }
+
+    sub_tags = subreddit_hashtags.get(subreddit.lower(), "#RedditStories")
+
+    description = (
+        f"{first_sentence}\n\n"
+        f"#Shorts {sub_tags} #RedditStories #StoryTime\n\n"
+        f"Follow for daily stories! 🔔\n\n"
+        f"---\n"
+        f"Story from r/{subreddit}"
+    )
+
+    # --- TAGS ---
+    # Mix of broad + niche keywords
+    base_tags = ["shorts", "reddit stories", "storytime", "reddit", "true stories"]
+
+    # Add topic-specific tags based on content
+    body_lower = body.lower()
+    topic_tags = []
+    topic_map = {
+        "revenge": ["revenge story", "karma", "justice"],
+        "boss": ["work story", "bad boss", "quit job"],
+        "wedding": ["wedding drama", "bridezilla"],
+        "neighbor": ["bad neighbor", "neighbor story"],
+        "cheating": ["cheating story", "relationship drama"],
+        "parent": ["entitled parents", "family drama"],
+        "school": ["school story", "teacher story"],
+        "roommate": ["roommate story", "living together"],
+        "divorce": ["divorce story", "relationship"],
+    }
+
+    for keyword, tags in topic_map.items():
+        if keyword in body_lower:
+            topic_tags.extend(tags)
+
+    # Subreddit-based tags
+    sub_name_clean = subreddit.lower().replace("_", " ")
+    topic_tags.append(sub_name_clean)
+
+    all_tags = base_tags + list(set(topic_tags))  # Deduplicate
+    # YouTube allows max 500 chars of tags — keep it reasonable
+    all_tags = all_tags[:15]
+
+    return short_title, description, all_tags
+
+
+def create_and_upload_viral_short(youtube_client=None, history=None):
+    """
+    The main pipeline: fetch story -> voice -> video -> upload.
     
-    # 1. Generate / Fetch Script
-    title, body = get_reddit_story()
-    print(f"\n[1] Fetched Script:\nTitle: {title}\nLength: {len(body.split())} words")
-    
-    # Safety check on length: YouTube Shorts MUST be under 60 seconds.
-    script_text = f"{title}. {body}"
-    # The scraper already filters for < 155 words. 
-    # At +15% TTS speed, 160 words easily fits under 60 seconds.
+    Returns:
+        dict with 'success', 'title', 'video_id', 'file_path' keys
+    """
+    result = {'success': False, 'title': None, 'video_id': None, 'file_path': None}
+
+    # 1. Fetch Script (with dedup check)
+    max_fetch_attempts = 3
+    title, body, subreddit = None, None, None
+
+    for attempt in range(max_fetch_attempts):
+        title, body, subreddit = get_reddit_story()
+        if history and is_duplicate(title, history):
+            print(f"  ⚠️ Duplicate story detected: '{title[:40]}...' — retrying")
+            continue
+        break
+    else:
+        print("  ❌ Could not find a non-duplicate story after retries")
+        return result
+
+    print(f"\n  📖 Story: {title[:60]}")
+    print(f"  📍 From: r/{subreddit}")
+    print(f"  📏 Length: {len(body.split())} words")
+
+    # Safety check on length
+    script_text = body  # Hook is already prepended by the scraper
     if len(script_text.split()) > 175:
-        print("Warning: Script is unusually long. It might exceed the 60-second limit for Shorts.")
-        # Try to cut at the last sentence boundary
+        print("  ⚠️ Script unusually long — trimming")
         script_text = script_text[:850]
         last_period = script_text.rfind('.')
         if last_period > 0:
-            script_text = script_text[:last_period+1]
-        
+            script_text = script_text[:last_period + 1]
+
     # 2. Generate Audio and Subtitles
-    print("\n[2] Generating Voiceover and Subtitles...")
+    print("\n  🎤 Generating voiceover and subtitles...")
     audio_file = os.path.join(TEMP_DIR, "audio.mp3")
     subs_file = os.path.join(TEMP_DIR, "subs.vtt")
-    
+
     mp3_path, vtt_path = generate_audio_and_subs(script_text, audio_file, subs_file)
-    
+
     if not mp3_path or not vtt_path:
-        print("Failed to generate audio. Aborting.")
-        return
-        
+        print("  ❌ Failed to generate audio. Aborting.")
+        return result
+
     # 3. Assemble Video
-    print("\n[3] Assembling Video...")
-    safe_title = "".join([c for c in title if c.isalpha() or c.isdigit() or c==' ']).rstrip()
-    safe_title_underscored = safe_title.replace(" ", "_")
-    final_video_path = os.path.join(VIDEOS_DIR, f"{safe_title_underscored}.mp4")
-    
-    # Using a background video if present, otherwise it generates black background
-    bg_video = os.path.join(ASSETS_DIR, "background_small.mp4")
-    
+    print("\n  🎬 Assembling video...")
+    safe_title = "".join([c for c in title if c.isalpha() or c.isdigit() or c == ' ']).rstrip()
+    safe_title_underscored = safe_title.replace(" ", "_")[:50]
+    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+    final_video_path = os.path.join(VIDEOS_DIR, f"{safe_title_underscored}_{timestamp}.mp4")
+
+    # Pick a random background video from assets
+    bg_videos = [
+        os.path.join(ASSETS_DIR, f)
+        for f in os.listdir(ASSETS_DIR)
+        if f.endswith(('.mp4', '.webm', '.mov'))
+    ] if os.path.exists(ASSETS_DIR) else []
+
+    bg_video = random.choice(bg_videos) if bg_videos else os.path.join(ASSETS_DIR, "background_small.mp4")
+
     try:
-        rendered_video = create_video(mp3_path, vtt_path, background_path=bg_video, output_path=final_video_path)
+        rendered_video = create_video(
+            mp3_path, vtt_path,
+            background_path=bg_video,
+            output_path=final_video_path
+        )
     except Exception as e:
-        print(f"Error during video generation: {e}")
-        return
-        
-    print(f"\nVideo successfully generated: {rendered_video}")
-    
-    # 4. Upload to YouTube
-    print("\n[4] Uploading to YouTube...")
+        print(f"  ❌ Error during video generation: {e}")
+        return result
+
+    result['file_path'] = rendered_video
+
+    # 4. Generate viral metadata
+    short_title, description, tags = generate_viral_metadata(title, body, subreddit)
+    print(f"\n  📋 Upload title: {short_title}")
+
+    # 5. Upload to YouTube
+    if youtube_client:
+        print("\n  📤 Uploading to YouTube...")
+        try:
+            video_id = upload_video(
+                youtube=youtube_client,
+                file_path=rendered_video,
+                title=short_title,
+                description=description,
+                category_id="24",  # Entertainment
+                keywords=tags,
+                privacy_status="public"
+            )
+
+            if video_id:
+                result['success'] = True
+                result['title'] = title
+                result['video_id'] = video_id
+
+                # Move to uploaded folder
+                dest_path = os.path.join(UPLOADED_DIR, os.path.basename(rendered_video))
+                shutil.move(rendered_video, dest_path)
+                print(f"  Moved video to {UPLOADED_DIR}/")
+
+        except Exception as e:
+            print(f"  ❌ Failed to upload video: {e}")
+            print(f"  Your video is saved at {rendered_video}")
+    else:
+        print(f"\n  ⏭️ Skipping upload (no YouTube client)")
+        print(f"  Video saved at: {rendered_video}")
+        result['success'] = True
+        result['title'] = title
+
+    return result
+
+
+def run_pipeline():
+    """
+    Main entry point: generates and uploads multiple viral shorts.
+    """
+    setup_directories()
+
+    print("\n" + "=" * 60)
+    print("🚀 VIRAL SHORTS GENERATION PIPELINE")
+    print(f"   Videos to generate: {NUM_VIDEOS}")
+    print(f"   Time: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
+    print("=" * 60)
+
+    # Load upload history for deduplication
+    history = load_upload_history()
+    print(f"📚 Upload history: {len(history.get('uploaded_titles', []))} previous videos")
+
+    # Authenticate with YouTube
+    youtube_client = None
     try:
         youtube_client = get_authenticated_service()
+        print("✅ YouTube API authenticated")
     except Exception as e:
-        print(f"Failed to authenticate with YouTube API: {e}")
-        print(f"Your video is saved at {rendered_video}. You can upload it manually.")
-        return
-        
-    full_title = f"{safe_title[:85]} #shorts #story"
-    description = f"{script_text[:1000]}\n\n#shorts #reddit #story #viral"
-    tags = ["shorts", "reddit", "story", "trueoffmychest", "viral"]
-    
-    try:
-        upload_video(
-            youtube=youtube_client,
-            file_path=rendered_video,
-            title=full_title,
-            description=description,
-            category_id="22", # People & Blogs
-            keywords=tags,
-            privacy_status="public" # Upload directly to public
-        )
-        
-        # Move to uploaded
-        dest_path = os.path.join(UPLOADED_DIR, os.path.basename(rendered_video))
-        shutil.move(rendered_video, dest_path)
-        print(f"Moved video to {UPLOADED_DIR}/")
-        
-    except Exception as e:
-        print(f"Failed to upload video: {e}")
-        
-    print("\n" + "="*50)
-    print("PIPELINE COMPLETE")
-    print("="*50 + "\n")
+        print(f"⚠️ YouTube auth failed: {e}")
+        print("Videos will be generated locally but not uploaded.")
+
+    # Generate and upload videos
+    successful = 0
+    for i in range(NUM_VIDEOS):
+        print(f"\n{'─' * 60}")
+        print(f"📹 VIDEO {i + 1} of {NUM_VIDEOS}")
+        print(f"{'─' * 60}")
+
+        result = create_and_upload_viral_short(youtube_client, history)
+
+        if result['success'] and result['title']:
+            successful += 1
+            # Record in history
+            history["uploaded_titles"].append(result['title'])
+            history["videos"].append({
+                "title": result['title'],
+                "video_id": result.get('video_id'),
+                "uploaded_at": datetime.now().isoformat(),
+                "file": result.get('file_path')
+            })
+            save_upload_history(history)
+
+        # Cooldown between uploads (skip for last video)
+        if i < NUM_VIDEOS - 1 and result['success']:
+            print(f"\n  ⏳ Cooling down {UPLOAD_COOLDOWN}s before next video...")
+            time.sleep(UPLOAD_COOLDOWN)
+
+    # Summary
+    print("\n" + "=" * 60)
+    print(f"✅ PIPELINE COMPLETE: {successful}/{NUM_VIDEOS} videos uploaded")
+    print("=" * 60 + "\n")
+
 
 if __name__ == "__main__":
-    create_and_upload_viral_short()
+    run_pipeline()

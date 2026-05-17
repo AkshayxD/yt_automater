@@ -22,7 +22,7 @@ RETRIABLE_EXCEPTIONS = (httplib2.HttpLib2Error, IOError, http.client.NotConnecte
 # codes is raised.
 RETRIABLE_STATUS_CODES = [500, 502, 503, 504]
 
-def upload_video(youtube, file_path, title, description, category_id="22", keywords=None, privacy_status="private"):
+def upload_video(youtube, file_path, title, description, category_id="24", keywords=None, privacy_status="private"):
     """
     Uploads a video to YouTube.
     
@@ -31,15 +31,20 @@ def upload_video(youtube, file_path, title, description, category_id="22", keywo
         file_path (str): Path to the video file to upload.
         title (str): The video title.
         description (str): The video description.
-        category_id (str): The YouTube category ID (22 is People & Blogs).
+        category_id (str): The YouTube category ID (24 = Entertainment).
         keywords (list): A list of tags for the video.
         privacy_status (str): "public", "private", or "unlisted".
+
+    Returns:
+        str: The YouTube video ID on success, or None on failure.
     """
     if keywords is None:
         keywords = []
         
-    print(f"Preparing to upload: {file_path}")
-    print(f"Title: {title}")
+    print(f"  Preparing to upload: {file_path}")
+    print(f"  Title: {title}")
+    print(f"  Category: {category_id} | Privacy: {privacy_status}")
+    print(f"  Tags: {', '.join(keywords[:5])}{'...' if len(keywords) > 5 else ''}")
 
     body = {
         'snippet': {
@@ -71,24 +76,32 @@ def upload_video(youtube, file_path, title, description, category_id="22", keywo
         media_body=MediaFileUpload(file_path, chunksize=-1, resumable=True)
     )
 
-    resumable_upload(insert_request)
+    video_id = resumable_upload(insert_request)
+    return video_id
 
 def resumable_upload(request):
     """
     Executes the resumable upload process with retry logic.
+    
+    Returns:
+        str: The YouTube video ID on success, or None on failure.
     """
     response = None
     error = None
     retry = 0
     while response is None:
         try:
-            print('Uploading file...')
+            print('  Uploading file...')
             status, response = request.next_chunk()
             if response is not None:
                 if 'id' in response:
-                    print(f"Video id '{response['id']}' was successfully uploaded.")
+                    video_id = response['id']
+                    print(f"  ✅ Video '{video_id}' uploaded successfully!")
+                    print(f"  🔗 https://youtube.com/shorts/{video_id}")
+                    return video_id
                 else:
-                    exit('The upload failed with an unexpected response: %s' % response)
+                    print(f"  ❌ Upload failed with unexpected response: {response}")
+                    return None
         except HttpError as e:
             if e.resp.status in RETRIABLE_STATUS_CODES:
                 error = 'A retriable HTTP error %d occurred:\n%s' % (e.resp.status, e.content)
@@ -98,12 +111,15 @@ def resumable_upload(request):
             error = 'A retriable error occurred: %s' % e
 
         if error is not None:
-            print(error)
+            print(f"  ⚠️ {error}")
             retry += 1
             if retry > MAX_RETRIES:
-                exit('No longer attempting to retry.')
+                print("  ❌ Max retries exceeded. Upload failed.")
+                return None
 
             max_sleep = 2 ** retry
             sleep_seconds = random.random() * max_sleep
-            print('Sleeping %f seconds and then retrying...' % sleep_seconds)
+            print('  Sleeping %f seconds and then retrying...' % sleep_seconds)
             time.sleep(sleep_seconds)
+    
+    return None
