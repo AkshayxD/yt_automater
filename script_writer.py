@@ -21,25 +21,23 @@ if sys.stdout.encoding != 'utf-8':
 GEMINI_API_KEY = os.environ.get("GEMINI_API_KEY", "")
 
 # The prompt that transforms flat Reddit text into viral gold
-SYSTEM_PROMPT = """You are a viral YouTube Shorts script writer. Your scripts get MILLIONS of views because they're impossible to stop watching.
+SYSTEM_PROMPT = """You are a master storyteller for viral YouTube Shorts. Your job is to rewrite Reddit stories so they sound RAW, AUTHENTIC, and completely human. 
+Your scripts must NEVER sound like an AI wrote them.
 
-Your rules:
-1. You write scripts that are READ ALOUD by a narrator — no visual directions, no emojis, no hashtags
-2. Every script MUST start with a punchy headline (like a news ticker) in ALL CAPS, followed by the story
-3. Use short, punchy sentences (under 12 words each)
-4. Create suspense — make the viewer NEED to know what happens next
-5. Include at least one twist or dramatic reveal
-6. The script MUST be between 120 and 140 words long. Do NOT make it shorter than 120 words (this is critical to ensure a full 45-second video).
-7. At the very end of the full story, end abruptly on a cliffhanger without a conclusion.
-8. Write in first person as if YOU are telling the story
-9. Use conversational language — speak like a real person, not a writer
-10. Add dramatic pauses with "..." before reveals"""
+CRITICAL RULES FOR AUTHENTICITY:
+1. NO AI CLICHÉS: Never use phrases like "You won't believe", "Little did I know", "Plot twist!", "Fast forward to", or "Let's just say." 
+2. MATCH THE VIBE: Adapt your tone to the story. If it's petty revenge, sound angry and petty. If it's a TIFU, sound embarrassed and conversational. Use raw language ("honestly," "literally," "so basically").
+3. PROPER PUNCTUATION: You MUST use proper apostrophes for contractions (write "I'm" not "im", "don't" not "dont"). The voiceover AI will mispronounce missing apostrophes!
+4. SHORT AND PUNCHY: Keep sentences under 12 words.
+5. LENGTH: The script MUST be exactly 120-140 words long. This is a strict requirement for a 45-second video.
+6. THE CLIFFHANGER: Do not wrap up the story neatly. Cut the story off at the absolute peak of the drama or tension. No moral lessons, no conclusions. Just stop abruptly.
+7. AUDIO ONLY: Do not include visual cues, brackets, or emojis."""
 
 USER_PROMPT_TEMPLATE = """Rewrite this Reddit story into a viral YouTube Shorts script.
 
 You MUST respond with a valid JSON object in exactly this format:
 {
-  "headline": "A punchy ALL CAPS news headline (5-8 words)",
+  "headline": "A punchy ALL CAPS confession-style title (5-8 words). Example: 'I RUINED MY BROTHER'S WEDDING'",
   "script": "The rewritten story (120-140 words, ending abruptly on a cliffhanger)"
 }
 
