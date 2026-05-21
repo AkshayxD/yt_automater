@@ -29,8 +29,8 @@ Your rules:
 3. Use short, punchy sentences (under 12 words each)
 4. Create suspense — make the viewer NEED to know what happens next
 5. Include at least one twist or dramatic reveal
-6. End abruptly — no moral, no conclusion, no "and that's my story". Just stop at the most dramatic moment
-7. The total script MUST be under 140 words (this is critical — it will be a 45-55 second video)
+6. The script MUST be between 120 and 140 words long. Do NOT make it shorter than 120 words (this is critical to ensure a full 45-second video).
+7. At the very end of the full story, end abruptly on a cliffhanger without a conclusion.
 8. Write in first person as if YOU are telling the story
 9. Use conversational language — speak like a real person, not a writer
 10. Add dramatic pauses with "..." before reveals"""
@@ -40,8 +40,8 @@ USER_PROMPT_TEMPLATE = """Rewrite this Reddit story into a viral YouTube Shorts 
 IMPORTANT FORMAT:
 - Line 1: A punchy headline in ALL CAPS (5-8 words, like a news headline). Example: "MY BOSS FIRED ME FOR BEING RIGHT"
 - Line 2 onward: The rewritten story (first person, dramatic, suspenseful)
-- Total: UNDER 140 words
-- End abruptly at the most dramatic moment
+- Length constraints: MUST be between 120 and 140 words to fill a 45-second video.
+- Ending: Build up the story normally, and only at the very end, cut off abruptly at the climax.
 
 Original Reddit title: {title}
 
