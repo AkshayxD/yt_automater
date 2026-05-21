@@ -212,10 +212,16 @@ def create_and_upload_viral_short(youtube_client=None, history=None, voice=None,
     # Safety check on length
     if len(script_text.split()) > 175:
         print("  ⚠️ Script unusually long — trimming")
-        script_text = script_text[:850]
-        last_period = script_text.rfind('.')
-        if last_period > 0:
-            script_text = script_text[:last_period + 1]
+        trimmed = ' '.join(script_text.split()[:140])
+        
+        # Find the last sentence boundary (. ! or ?)
+        boundaries = [trimmed.rfind('.'), trimmed.rfind('!'), trimmed.rfind('?')]
+        last_boundary = max(boundaries)
+        
+        if last_boundary > int(len(trimmed) * 0.7):
+            script_text = trimmed[:last_boundary + 1]
+        else:
+            script_text = trimmed
 
     # 2. Generate Audio and Word-Level Subtitles (SRT with exact timestamps)
     print("\n  🎤 Generating voiceover and subtitles...")

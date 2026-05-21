@@ -119,9 +119,15 @@ def rewrite_story(title, body):
             # Trim to ~140 words at a sentence boundary
             words = script.split()
             trimmed = ' '.join(words[:140])
-            last_period = trimmed.rfind('.')
-            if last_period > 50:
-                script = trimmed[:last_period + 1]
+            
+            # Find the last sentence boundary (. ! or ?)
+            boundaries = [trimmed.rfind('.'), trimmed.rfind('!'), trimmed.rfind('?')]
+            last_boundary = max(boundaries)
+            
+            # Only trim if the boundary is in the last 30% of the trimmed string
+            # to prevent cutting off the entire story due to early punctuation
+            if last_boundary > int(len(trimmed) * 0.7):
+                script = trimmed[:last_boundary + 1]
             else:
                 script = trimmed
             print(f"  ⚠️ Script was {word_count} words — trimmed to {len(script.split())}")
