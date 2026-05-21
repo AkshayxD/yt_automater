@@ -209,26 +209,29 @@ def create_and_upload_viral_short(youtube_client=None, history=None, voice=None,
     print(f"  📰 Headline: {ai_headline}")
     print(f"  📏 Script length: {len(script_text.split())} words")
 
-    # Safety check on length
-    if len(script_text.split()) > 175:
+    # Put the headline back into the script so the voiceover actually speaks it!
+    full_spoken_text = f"{ai_headline}... {script_text}"
+
+    # Safety check on length (prevent 60s+ Shorts)
+    if len(full_spoken_text.split()) > 175:
         print("  ⚠️ Script unusually long — trimming")
-        trimmed = ' '.join(script_text.split()[:140])
+        trimmed = ' '.join(full_spoken_text.split()[:140])
         
         # Find the last sentence boundary (. ! or ?)
         boundaries = [trimmed.rfind('.'), trimmed.rfind('!'), trimmed.rfind('?')]
         last_boundary = max(boundaries)
         
         if last_boundary > int(len(trimmed) * 0.7):
-            script_text = trimmed[:last_boundary + 1]
+            full_spoken_text = trimmed[:last_boundary + 1]
         else:
-            script_text = trimmed
+            full_spoken_text = trimmed
 
     # 2. Generate Audio and Word-Level Subtitles (SRT with exact timestamps)
     print("\n  🎤 Generating voiceover and subtitles...")
     audio_file = os.path.join(TEMP_DIR, "audio.mp3")
     subs_file = os.path.join(TEMP_DIR, "subs.srt")
 
-    mp3_path, srt_path = generate_audio_and_subs(script_text, audio_file, subs_file, voice=voice)
+    mp3_path, srt_path = generate_audio_and_subs(full_spoken_text, audio_file, subs_file, voice=voice)
 
     if not mp3_path or not srt_path:
         print("  ❌ Failed to generate audio. Aborting.")
