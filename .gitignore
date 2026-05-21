@@ -10,11 +10,18 @@ __pycache__/
 venv/
 env/
 
-# Video Files
+# Video Files and Build Artifacts
 temp/
 videos_to_upload/
 uploaded_videos/
+build/
+dist/
+*.spec
+upload_history.json
 assets/*
 !assets/background_small.mp4
+!assets/fonts/
+!assets/fonts/*
 
 # (We upload the small compressed background video because yt-dlp is blocked by YouTube's bot detection on GitHub Actions)
+

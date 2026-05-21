@@ -17,200 +17,131 @@ if os.name == 'nt' and not os.environ.get('IMAGEMAGICK_BINARY'):
 
 from moviepy.editor import (
     VideoFileClip, AudioFileClip, TextClip, CompositeVideoClip,
-    ColorClip, ImageClip
+    ColorClip
 )
 import numpy as np
 
 # --- Configuration ---
 VIDEO_WIDTH = 1080
 VIDEO_HEIGHT = 1920
-SUBTITLE_MAX_WIDTH = 950
+SUBTITLE_MAX_WIDTH = 1000
 
-# Subtitle styling
-FONT_NAME = "Impact" if os.name == 'nt' else "Arial-Bold"
-ACTIVE_COLOR = '#FFD700'          # Gold/yellow for the active word chunk
-INACTIVE_COLOR = 'white'          # White for context words
-ACTIVE_FONT_SIZE = 100
-INACTIVE_FONT_SIZE = 80
-STROKE_WIDTH = 5
+# --- Font ---
+# Montserrat ExtraBold — the #1 viral Shorts font (used by Hormozi, MrBeast, etc.)
+# Falls back to Impact if font file not found
+FONT_PATH = os.path.join("assets", "fonts", "Montserrat-ExtraBold.ttf")
+if os.path.exists(FONT_PATH):
+    FONT_NAME = FONT_PATH
+else:
+    # Fallback for systems where the font isn't downloaded yet
+    FONT_NAME = "Impact" if os.name == 'nt' else "Arial-Bold"
+    print(f"  Note: Montserrat-ExtraBold.ttf not found, using {FONT_NAME}")
 
-# How many words per subtitle chunk for the "karaoke" effect
-WORDS_PER_CHUNK = 3
+# --- Subtitle Styling ---
+ACTIVE_COLOR = '#FFFF00'           # Bright yellow for the active word chunk
+INACTIVE_COLOR = 'white'           # White for context words (unused in single-line mode)
+ACTIVE_FONT_SIZE = 88              # Montserrat is wider than Impact, so slightly smaller
+STROKE_WIDTH = 4                   # Black outline for readability
+STROKE_COLOR = 'black'
+
+# How many words per subtitle chunk — 2 prevents overlap and syncs tighter
+WORDS_PER_CHUNK = 2
 
 
-def parse_vtt(vtt_file):
+def parse_srt(srt_file):
     """
-    Parses a VTT file and returns a list of subtitle cues.
-    Each cue has 'start', 'end' (in seconds), and 'text'.
+    Parses an SRT file with word-level timing (from edge-tts WordBoundary).
+    Each entry is a single word with its exact start/end time.
+
+    Returns a list of dicts: [{'start': float, 'end': float, 'text': str}, ...]
     """
-    with open(vtt_file, 'r', encoding='utf-8') as f:
+    with open(srt_file, 'r', encoding='utf-8') as f:
         content = f.read()
 
-    # Match timestamps and text in VTT
+    # SRT format: index, timestamp line, text, blank line
     pattern = re.compile(
-        r'(\d{2}:\d{2}:\d{2}[.,]\d{3})\s*-->\s*(\d{2}:\d{2}:\d{2}[.,]\d{3})\n(.*?)(?=\n\n|\Z)',
+        r'(\d+)\n(\d{2}:\d{2}:\d{2}[.,]\d{3})\s*-->\s*(\d{2}:\d{2}:\d{2}[.,]\d{3})\n(.*?)(?=\n\n|\n\d+\n|\Z)',
         re.DOTALL
     )
     matches = pattern.findall(content)
 
-    subs = []
+    def time_to_sec(t):
+        t = t.replace(',', '.')
+        h, m, s = t.split(':')
+        sec, ms = s.split('.')
+        return int(h) * 3600 + int(m) * 60 + int(sec) + int(ms) / 1000.0
+
+    words = []
     for match in matches:
-        start_str, end_str, text = match
-
-        def time_to_sec(t):
-            t = t.replace(',', '.')
-            h, m, s = t.split(':')
-            sec, ms = s.split('.')
-            return int(h) * 3600 + int(m) * 60 + int(sec) + int(ms) / 1000.0
-
-        start_sec = time_to_sec(start_str)
-        end_sec = time_to_sec(end_str)
-
+        _idx, start_str, end_str, text = match
         cleaned = text.strip()
         if cleaned:
-            subs.append({
-                'start': start_sec,
-                'end': end_sec,
+            words.append({
+                'start': time_to_sec(start_str),
+                'end': time_to_sec(end_str),
                 'text': cleaned
             })
 
-    return subs
+    return words
 
 
-def split_subs_into_word_chunks(subs, words_per_chunk=WORDS_PER_CHUNK):
+def group_words_into_chunks(words, words_per_chunk=WORDS_PER_CHUNK):
     """
-    Takes sentence-level subtitles from edge-tts and splits them into
-    word-level chunks with estimated timing.
-    
-    Since edge-tts gives us sentence timing, we distribute the duration
-    proportionally across words (by character length as a rough proxy
-    for spoken duration).
-    
-    Returns a list of chunks, each with:
-      - 'text': the chunk text (2-3 words)
-      - 'start': estimated start time
-      - 'end': estimated end time
+    Groups word-level SRT entries into chunks of N words.
+    Uses the EXACT timestamps from edge-tts WordBoundary events —
+    no estimation or character-proportion math needed.
+
+    Returns a list of chunks:
+      [{'text': '2 words here', 'start': exact_start, 'end': exact_end}, ...]
     """
-    all_chunks = []
-
-    for sub in subs:
-        words = sub['text'].split()
-        if not words:
-            continue
-
-        duration = sub['end'] - sub['start']
-
-        # Calculate character-weighted timing
-        # Longer words take more time to say
-        char_counts = [max(len(w), 1) for w in words]
-        total_chars = sum(char_counts)
-
-        # Build word-level timing
-        word_entries = []
-        current_time = sub['start']
-        for i, word in enumerate(words):
-            word_duration = (char_counts[i] / total_chars) * duration
-            word_entries.append({
-                'text': word,
-                'start': current_time,
-                'end': current_time + word_duration
-            })
-            current_time += word_duration
-
-        # Group words into chunks of WORDS_PER_CHUNK
-        for i in range(0, len(word_entries), words_per_chunk):
-            group = word_entries[i:i + words_per_chunk]
-            chunk = {
-                'text': ' '.join(w['text'] for w in group),
-                'start': group[0]['start'],
-                'end': group[-1]['end']
-            }
-            all_chunks.append(chunk)
-
-    return all_chunks
+    chunks = []
+    for i in range(0, len(words), words_per_chunk):
+        group = words[i:i + words_per_chunk]
+        chunk = {
+            'text': ' '.join(w['text'] for w in group),
+            'start': group[0]['start'],
+            'end': group[-1]['end']
+        }
+        chunks.append(chunk)
+    return chunks
 
 
-def create_gradient_overlay(width, height):
+def create_subtitle_clips(chunks):
     """
-    Creates a dark gradient overlay (top and bottom edges) that makes
-    text pop against any background footage. This is the "premium" look.
-    Returns a numpy RGB array.
-    """
-    # Create a dark gradient image
-    overlay = np.zeros((height, width, 3), dtype=np.uint8)
+    Creates single-line centered subtitle clips with the viral Shorts style:
 
-    # Top gradient: dark to transparent (first 20% of height)
-    top_h = height // 5
-    for y in range(top_h):
-        brightness = int(255 * (y / top_h))  # Goes from 0 (black) to 255 (transparent)
-        # We set pixels to black; opacity will be controlled by the clip
-        pass  # We'll handle this differently
+    - ONE line at a time (no stacking) — this is what actual viral Shorts do
+    - Each chunk is 2 words, displayed in ALL CAPS
+    - Bright yellow text with thick black outline
+    - Positioned at ~40% from top (above YouTube's UI buttons)
 
-    # Bottom gradient: transparent to dark (last 25% of height)
-    bot_h = height // 4
-    for y in range(bot_h):
-        actual_y = height - bot_h + y
-        # Goes from transparent to black
-        pass
-
-    return overlay
-
-
-def create_subtitle_clips(chunks, audio_duration):
-    """
-    Creates animated subtitle clips with the "karaoke highlight" effect:
-    
-    - Chunks are grouped into "screens" (pairs of chunks displayed together)
-    - The currently-spoken chunk is highlighted in GOLD with a larger font
-    - Other visible chunks are shown in WHITE with a smaller font
-    - Position: slightly above center to avoid YouTube's UI overlay
-    
     Returns a list of moviepy TextClips.
     """
     subtitle_clips = []
 
-    # Group chunks into "screens" — each screen shows 2 chunks stacked vertically
-    # This gives context (you see what's coming next) while highlighting what's active
-    screens = []
-    for i in range(0, len(chunks), 2):
-        screen_chunks = chunks[i:i + 2]
-        screens.append(screen_chunks)
+    for chunk in chunks:
+        display_text = chunk['text'].upper()
 
-    for screen in screens:
-        # For each chunk in this screen, create a time window where IT is highlighted
-        for active_idx in range(len(screen)):
-            active_chunk = screen[active_idx]
+        txt_clip = TextClip(
+            display_text,
+            fontsize=ACTIVE_FONT_SIZE,
+            color=ACTIVE_COLOR,
+            font=FONT_NAME,
+            stroke_color=STROKE_COLOR,
+            stroke_width=STROKE_WIDTH,
+            method='caption',
+            size=(SUBTITLE_MAX_WIDTH, None)
+        )
 
-            for chunk_idx, chunk in enumerate(screen):
-                is_active = (chunk_idx == active_idx)
+        # Center horizontally, position at 40% from top
+        y_pos = int(VIDEO_HEIGHT * 0.40)
 
-                # Create the text clip
-                display_text = chunk['text'].upper()
+        txt_clip = (txt_clip
+                    .set_position(('center', y_pos))
+                    .set_start(chunk['start'])
+                    .set_end(chunk['end']))
 
-                txt_clip = TextClip(
-                    display_text,
-                    fontsize=ACTIVE_FONT_SIZE if is_active else INACTIVE_FONT_SIZE,
-                    color=ACTIVE_COLOR if is_active else INACTIVE_COLOR,
-                    font=FONT_NAME,
-                    stroke_color='black',
-                    stroke_width=STROKE_WIDTH if is_active else 3,
-                    method='caption',
-                    size=(SUBTITLE_MAX_WIDTH, None)
-                )
-
-                # Vertical positioning — slightly above center
-                # YouTube's like/comment/share buttons are at bottom-right
-                base_y = VIDEO_HEIGHT * 0.40  # 40% from top
-
-                # Stack chunks vertically within the screen
-                y_offset = int(base_y + (chunk_idx * 120))
-
-                txt_clip = (txt_clip
-                            .set_position(('center', y_offset))
-                            .set_start(active_chunk['start'])
-                            .set_end(active_chunk['end']))
-
-                subtitle_clips.append(txt_clip)
+        subtitle_clips.append(txt_clip)
 
     return subtitle_clips
 
@@ -223,7 +154,6 @@ def trim_audio_silence(audio_clip, threshold_db=-40):
     """
     try:
         fps = audio_clip.fps or 44100
-        # to_soundarray can fail with some moviepy/ffmpeg versions
         audio_array = audio_clip.to_soundarray(fps=fps)
 
         if audio_array is None or len(audio_array) == 0:
@@ -234,15 +164,11 @@ def trim_audio_silence(audio_clip, threshold_db=-40):
         else:
             amplitudes = np.abs(audio_array)
 
-        # Convert threshold from dB to linear
         threshold = 10 ** (threshold_db / 20.0)
-
-        # Find last sample above threshold
         non_silent = np.where(amplitudes > threshold)[0]
 
         if len(non_silent) > 0:
             last_sound = non_silent[-1]
-            # Add tiny buffer (0.15s) then cut — abrupt but not jarring
             end_sample = last_sound + int(fps * 0.15)
             end_time = min(end_sample / fps, audio_clip.duration)
             time_saved = audio_clip.duration - end_time
@@ -255,21 +181,22 @@ def trim_audio_silence(audio_clip, threshold_db=-40):
     return audio_clip
 
 
-def create_video(audio_path, vtt_path, background_path="assets/background_small.mp4",
+def create_video(audio_path, srt_path, background_path="assets/background_small.mp4",
                  output_path="final_video.mp4"):
     """
     Assembles the final video by combining background, audio, and animated captions.
-    
+
     Features:
-    - Word-by-word animated subtitles with gold highlight on active words
-    - Dark gradient overlay for premium text readability
-    - Abrupt ending (no trailing silence) for higher completion rate
-    - Optimized for 1080x1920 vertical format (YouTube Shorts)
-    - Random background segment selection for variety
+    - Word-level synced subtitles (exact timing from edge-tts WordBoundary)
+    - Montserrat ExtraBold font — viral Shorts standard
+    - 2 words per chunk, single centered line — no overlap
+    - Dark gradient overlay for text readability
+    - Abrupt ending (trailing silence trimmed)
+    - Optimized for 1080x1920 vertical (YouTube Shorts)
     """
     print("  Assembling final video...")
 
-    # Load audio and trim trailing silence for abrupt ending
+    # Load audio and trim trailing silence
     audio = AudioFileClip(audio_path)
     audio = trim_audio_silence(audio)
     audio_duration = audio.duration
@@ -281,28 +208,28 @@ def create_video(audio_path, vtt_path, background_path="assets/background_small.
         audio_duration = 59.5
 
     # --- Background Video ---
+    # ONLY use Minecraft parkour videos (copyright-safe for monetization)
     bg_clip = None
 
     if not os.path.exists(background_path):
-        # Try to find ANY video in the assets folder
+        # Try background.mp4 or background_small.mp4
         assets_dir = os.path.dirname(background_path) or "assets"
-        if os.path.exists(assets_dir):
-            bg_files = [f for f in os.listdir(assets_dir)
-                        if f.lower().endswith(('.mp4', '.webm', '.mov'))]
-            if bg_files:
-                background_path = os.path.join(assets_dir, random.choice(bg_files))
-                print(f"  Using alternate background: {os.path.basename(background_path)}")
+        for fallback in ["background_small.mp4", "background.mp4"]:
+            fallback_path = os.path.join(assets_dir, fallback)
+            if os.path.exists(fallback_path):
+                background_path = fallback_path
+                break
 
     if os.path.exists(background_path):
         bg_clip = VideoFileClip(background_path)
 
-        # Make sure background is longer than audio
+        # Loop if background is shorter than audio
         if bg_clip.duration < audio_duration:
             print("  Background shorter than audio — looping...")
             from moviepy.video.fx.all import loop
             bg_clip = bg_clip.fx(loop, duration=audio_duration)
 
-        # Pick a random starting point for variety
+        # Random starting point for variety across videos
         max_start = max(0, bg_clip.duration - audio_duration)
         start_time = random.uniform(0, max_start)
         bg_clip = bg_clip.subclip(start_time, start_time + audio_duration)
@@ -320,12 +247,11 @@ def create_video(audio_path, vtt_path, background_path="assets/background_small.
         print("  ⚠️ No background video found — using dark background")
         bg_clip = ColorClip(
             size=(VIDEO_WIDTH, VIDEO_HEIGHT),
-            color=(12, 12, 20),  # Near-black with subtle blue tint
+            color=(12, 12, 20),
             duration=audio_duration
         )
 
     # --- Dark Gradient Overlay ---
-    # Semi-transparent black at top and bottom edges for text readability
     gradient_top = (ColorClip(size=(VIDEO_WIDTH, VIDEO_HEIGHT // 4), color=(0, 0, 0))
                     .set_duration(audio_duration)
                     .set_position(('center', 'top'))
@@ -336,22 +262,21 @@ def create_video(audio_path, vtt_path, background_path="assets/background_small.
                        .set_position(('center', 'bottom'))
                        .set_opacity(0.4))
 
-    # Attach the audio
+    # Attach audio
     video_with_audio = bg_clip.set_audio(audio)
 
     # --- Animated Subtitles ---
     print("  Generating animated subtitles...")
-    subs = parse_vtt(vtt_path)
+    words = parse_srt(srt_path)
 
-    if not subs:
-        print("  ⚠️ No subtitles found in VTT file!")
+    if not words:
+        print("  ⚠️ No subtitles found in SRT file!")
         subtitle_clips = []
     else:
-        # Split sentence-level subs into word-level chunks
-        chunks = split_subs_into_word_chunks(subs)
-        subtitle_clips = create_subtitle_clips(chunks, audio_duration)
+        chunks = group_words_into_chunks(words)
+        subtitle_clips = create_subtitle_clips(chunks)
         print(f"  Created {len(subtitle_clips)} subtitle clips "
-              f"from {len(chunks)} word chunks")
+              f"from {len(words)} words ({WORDS_PER_CHUNK} words/chunk)")
 
     # --- Composite Everything ---
     print("  Compositing layers...")
@@ -370,9 +295,9 @@ def create_video(audio_path, vtt_path, background_path="assets/background_small.
         codec="libx264",
         audio_codec="aac",
         threads=4,
-        preset='medium',     # Good quality/speed balance
-        bitrate='8000k',     # High bitrate for crisp Shorts
-        logger=None          # Suppress massive progress bars
+        preset='medium',
+        bitrate='8000k',
+        logger=None
     )
 
     # Clean up
@@ -386,7 +311,7 @@ def create_video(audio_path, vtt_path, background_path="assets/background_small.
 
 
 if __name__ == "__main__":
-    if os.path.exists("temp/audio.mp3") and os.path.exists("temp/subs.vtt"):
-        create_video("temp/audio.mp3", "temp/subs.vtt", output_path="temp/test_output.mp4")
+    if os.path.exists("temp/audio.mp3") and os.path.exists("temp/subs.srt"):
+        create_video("temp/audio.mp3", "temp/subs.srt", output_path="temp/test_output.mp4")
     else:
         print("No test audio/subs found. Run audio_gen.py first.")

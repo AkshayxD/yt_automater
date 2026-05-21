@@ -50,16 +50,25 @@ jobs:
       id: cache-bg
       with:
         path: assets
-        key: bg-assets-v1
+        key: bg-assets-v2
 
-    - name: Download satisfying background videos
+    - name: Download Montserrat font (if not cached)
       run: |
-        python download_backgrounds.py
+        mkdir -p assets/fonts
+        if [ ! -f assets/fonts/Montserrat-ExtraBold.ttf ]; then
+          echo "Downloading Montserrat ExtraBold from Google Fonts..."
+          wget -q "https://github.com/JulietaUla/Montserrat/raw/master/fonts/ttf/Montserrat-ExtraBold.ttf" -O assets/fonts/Montserrat-ExtraBold.ttf
+          echo "Font downloaded: $(ls -la assets/fonts/Montserrat-ExtraBold.ttf)"
+        else
+          echo "Montserrat font already cached."
+        fi
 
     - name: Run Bot Pipeline
       env:
         # Pulls the secret base64 token you set in GitHub Repo Settings
         YOUTUBE_TOKEN_PICKLE_BASE64: ${{ secrets.YOUTUBE_TOKEN_PICKLE_BASE64 }}
+        # Gemini API key for AI script rewriting (free tier)
+        GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
         # How many videos to generate per run (default: 1)
         NUM_VIDEOS: "1"
       run: |

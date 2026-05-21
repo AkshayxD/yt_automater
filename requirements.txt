@@ -1,6 +1,7 @@
 google-api-python-client
 google-auth-httplib2
 google-auth-oauthlib
+google-genai
 requests
 edge-tts
 moviepy==1.0.3
