@@ -37,18 +37,16 @@ Your rules:
 
 USER_PROMPT_TEMPLATE = """Rewrite this Reddit story into a viral YouTube Shorts script.
 
-IMPORTANT FORMAT:
-- Line 1: A punchy headline in ALL CAPS (5-8 words, like a news headline). Example: "MY BOSS FIRED ME FOR BEING RIGHT"
-- Line 2 onward: The rewritten story (first person, dramatic, suspenseful)
-- Length constraints: MUST be between 120 and 140 words to fill a 45-second video.
-- Ending: Build up the story normally, and only at the very end, cut off abruptly at the climax.
+You MUST respond with a valid JSON object in exactly this format:
+{
+  "headline": "A punchy ALL CAPS news headline (5-8 words)",
+  "script": "The rewritten story (120-140 words, ending abruptly on a cliffhanger)"
+}
 
 Original Reddit title: {title}
 
 Original Reddit story:
-{body}
-
-Write the viral script now:"""
+{body}"""
 
 
 def rewrite_story(title, body):
@@ -59,14 +57,15 @@ def rewrite_story(title, body):
         tuple: (headline, script) — the punchy title and rewritten body
         Falls back to (title, body) if API is unavailable
     """
-    if not GEMINI_API_KEY:
-        print("  ⚠️ No GEMINI_API_KEY set — using raw Reddit text")
+    api_key = os.environ.get("GEMINI_API_KEY")
+    if not api_key:
+        print("  ⚠️ GEMINI_API_KEY not found! Falling back to raw text.")
         return title, body
-    
+
     try:
         from google import genai
-        
-        client = genai.Client(api_key=GEMINI_API_KEY)
+        import json
+        client = genai.Client(api_key=api_key)
         
         prompt = USER_PROMPT_TEMPLATE.format(title=title, body=body)
         
@@ -76,42 +75,29 @@ def rewrite_story(title, body):
             contents=prompt,
             config={
                 "system_instruction": SYSTEM_PROMPT,
-                "temperature": 0.9,  # Creative but not wild
-                "max_output_tokens": 400,
+                "temperature": 0.9,
+                "max_output_tokens": 500,
+                "response_mime_type": "application/json",
             }
         )
         
         result_text = response.text.strip()
         
-        if not result_text:
-            print("  ⚠️ Empty response from Gemini — using raw text")
+        try:
+            data = json.loads(result_text)
+            headline = data.get("headline", title).strip()
+            script = data.get("script", "").strip()
+            
+            if not script:
+                print("  ⚠️ AI generated an empty script! Falling back to raw text.")
+                return title, body
+        except json.JSONDecodeError:
+            print("  ⚠️ Failed to parse JSON, falling back to raw text")
             return title, body
         
-        # Parse the response: first line = headline, rest = script
-        lines = result_text.strip().split('\n')
-        
-        # Find the headline (first non-empty line, should be ALL CAPS)
-        headline = ""
-        script_lines = []
-        found_headline = False
-        
-        for line in lines:
-            line = line.strip()
-            if not line:
-                continue
-            if not found_headline:
-                # Remove any markdown formatting
-                headline = re.sub(r'[*#_]', '', line).strip()
-                # Remove quotes if present
-                headline = headline.strip('"').strip("'").strip()
-                found_headline = True
-            else:
-                # Remove any markdown formatting from body too
-                clean_line = re.sub(r'[*#_]', '', line).strip()
-                if clean_line:
-                    script_lines.append(clean_line)
-        
-        script = ' '.join(script_lines)
+        # Remove any markdown formatting
+        headline = re.sub(r'[*#_]', '', headline).strip('"').strip("'")
+        script = re.sub(r'[*#_]', '', script)
         
         # Validate
         word_count = len(script.split())

@@ -38,7 +38,7 @@ else:
     print(f"  Note: Montserrat-ExtraBold.ttf not found, using {FONT_NAME}")
 
 # --- Subtitle Styling ---
-ACTIVE_COLOR = '#FFFF00'           # Bright yellow for the active word chunk
+ACTIVE_COLOR = 'yellow'            # Bright yellow for the active word chunk
 INACTIVE_COLOR = 'white'           # White for context words (unused in single-line mode)
 ACTIVE_FONT_SIZE = 88              # Montserrat is wider than Impact, so slightly smaller
 STROKE_WIDTH = 4                   # Black outline for readability
