@@ -38,14 +38,16 @@ else:
     print(f"  Note: Montserrat-ExtraBold.ttf not found, using {FONT_NAME}")
 
 # --- Subtitle Styling ---
-ACTIVE_COLOR = 'yellow'            # Bright yellow for the active word chunk
-INACTIVE_COLOR = 'white'           # White for context words (unused in single-line mode)
-ACTIVE_FONT_SIZE = 88              # Montserrat is wider than Impact, so slightly smaller
-STROKE_WIDTH = 4                   # Black outline for readability
+# Pure white + thick black stroke is the #1 most readable style on any background
+# Used by MrBeast Shorts, Sidemen Shorts, and every top viral creator
+ACTIVE_COLOR = 'white'             # Pure white — max contrast on any background
+INACTIVE_COLOR = 'white'
+ACTIVE_FONT_SIZE = 95              # Slightly larger for phone readability
+STROKE_WIDTH = 9                   # THICK black stroke — the key to readability
 STROKE_COLOR = 'black'
 
-# How many words per subtitle chunk — 2 prevents overlap and syncs tighter
-WORDS_PER_CHUNK = 2
+# 3 words per chunk gives a natural reading cadence without feeling rushed
+WORDS_PER_CHUNK = 3
 
 
 def parse_srt(srt_file):
@@ -111,17 +113,22 @@ def create_subtitle_clips(chunks):
     Creates single-line centered subtitle clips with the viral Shorts style:
 
     - ONE line at a time (no stacking) — this is what actual viral Shorts do
-    - Each chunk is 2 words, displayed in ALL CAPS
-    - Bright yellow text with thick black outline
-    - Positioned at ~40% from top (above YouTube's UI buttons)
+    - Each chunk is 3 words, displayed in ALL CAPS
+    - Pure WHITE text with THICK (9px) black stroke — max readability on any BG
+    - Dark semi-transparent pill bar behind text for extra contrast
+    - Positioned at ~55% from top (screen center, well above YouTube's UI)
 
-    Returns a list of moviepy TextClips.
+    This is the exact style used by MrBeast Shorts, Sidemen, top Reddit narrators.
+    Returns a list of moviepy clips (text + background bars interleaved).
     """
     subtitle_clips = []
 
     for chunk in chunks:
         display_text = chunk['text'].upper()
+        start = chunk['start']
+        end = chunk['end']
 
+        # --- Text clip ---
         txt_clip = TextClip(
             display_text,
             fontsize=ACTIVE_FONT_SIZE,
@@ -129,18 +136,47 @@ def create_subtitle_clips(chunks):
             font=FONT_NAME,
             stroke_color=STROKE_COLOR,
             stroke_width=STROKE_WIDTH,
-            method='caption',
-            size=(SUBTITLE_MAX_WIDTH, None)
+            method='label',          # 'label' renders single-line, no wrap artifacts
+            align='center'
         )
 
-        # Center horizontally, position at 40% from top
-        y_pos = int(VIDEO_HEIGHT * 0.40)
+        # Clamp width — if text is wider than max, fall back to caption method
+        if txt_clip.w > SUBTITLE_MAX_WIDTH:
+            txt_clip.close()
+            txt_clip = TextClip(
+                display_text,
+                fontsize=ACTIVE_FONT_SIZE,
+                color=ACTIVE_COLOR,
+                font=FONT_NAME,
+                stroke_color=STROKE_COLOR,
+                stroke_width=STROKE_WIDTH,
+                method='caption',
+                size=(SUBTITLE_MAX_WIDTH, None),
+                align='center'
+            )
+
+        # Position at 55% from top — screen center on 9:16, above YT buttons
+        y_pos = int(VIDEO_HEIGHT * 0.55)
+
+        # --- Dark background bar behind text ---
+        bar_padding_x = 28
+        bar_padding_y = 14
+        bar_w = min(txt_clip.w + bar_padding_x * 2, VIDEO_WIDTH)
+        bar_h = txt_clip.h + bar_padding_y * 2
+
+        bg_bar = (ColorClip(size=(bar_w, bar_h), color=(0, 0, 0))
+                  .set_opacity(0.55)
+                  .set_start(start)
+                  .set_end(end)
+                  .set_position(('center', y_pos - bar_padding_y)))
 
         txt_clip = (txt_clip
                     .set_position(('center', y_pos))
-                    .set_start(chunk['start'])
-                    .set_end(chunk['end']))
+                    .set_start(start)
+                    .set_end(end))
 
+        # Bar first (behind), then text (on top)
+        subtitle_clips.append(bg_bar)
         subtitle_clips.append(txt_clip)
 
     return subtitle_clips

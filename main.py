@@ -213,9 +213,9 @@ def create_and_upload_viral_short(youtube_client=None, history=None, voice=None,
     full_spoken_text = f"{ai_headline}... {script_text}"
 
     # Safety check on length (prevent 60s+ Shorts)
-    if len(full_spoken_text.split()) > 175:
+    if len(full_spoken_text.split()) > 190:
         print("  ⚠️ Script unusually long — trimming")
-        trimmed = ' '.join(full_spoken_text.split()[:140])
+        trimmed = ' '.join(full_spoken_text.split()[:150])
         
         # Find the last sentence boundary (. ! or ?)
         boundaries = [trimmed.rfind('.'), trimmed.rfind('!'), trimmed.rfind('?')]

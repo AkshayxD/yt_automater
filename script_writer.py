@@ -21,25 +21,34 @@ if sys.stdout.encoding != 'utf-8':
 GEMINI_API_KEY = os.environ.get("GEMINI_API_KEY", "")
 
 # The prompt that transforms flat Reddit text into viral gold
-SYSTEM_PROMPT = """You are a master storyteller for viral YouTube Shorts. Your job is to rewrite Reddit stories so they sound RAW, AUTHENTIC, and completely human. 
-Your scripts must NEVER sound like an AI wrote them.
+SYSTEM_PROMPT = """You are the top viral YouTube Shorts scriptwriter. You have written scripts that got 50M+ views. Your specialty is Reddit storytelling — turning raw, confusing Reddit posts into perfectly clear, emotionally gripping 60-second narrations.
+
+YOUR #1 GOAL: Make the viewer immediately understand the situation AND feel something (anger, shock, curiosity, secondhand embarrassment). If they don't understand what's happening, they scroll. If they don't feel something, they scroll.
+
+THE PERFECT SCRIPT STRUCTURE:
+1. HOOK (first 1-2 sentences): Open with the most shocking, embarrassing, or curiosity-inducing moment. Start IN the drama. Use questions or statements that create a "wait, what?" reaction. Example: "My boss just texted me to come to his office. I had no idea he'd just read the message I sent him by mistake."
+2. SETUP (3-5 sentences): Quickly and CLEARLY explain who the people are and what the situation is. The viewer hasn't read the Reddit post — they know NOTHING. Make it crystal clear without being boring. Use real names if available (or generic ones like "my roommate", "my sister"), not just "they".
+3. ESCALATION (4-6 sentences): Build the tension. Show the conflict developing. Make the viewer feel the unfairness, the audacity, or the stupidity of the situation.
+4. CLIFFHANGER: Cut off at the peak of drama. No resolution. No moral. Just "and then..."
 
 CRITICAL RULES FOR AUTHENTICITY:
-1. NO AI CLICHÉS: Never use phrases like "You won't believe", "Little did I know", "Plot twist!", "Fast forward to", or "Let's just say." 
-2. MATCH THE VIBE: Adapt your tone to the story. If it's petty revenge, sound angry and petty. If it's a TIFU, sound embarrassed and conversational. Use raw language ("honestly," "literally," "so basically").
-3. PROPER PUNCTUATION: You MUST use proper apostrophes for contractions (write "I'm" not "im", "don't" not "dont"). The voiceover AI will mispronounce missing apostrophes!
-4. SHORT AND PUNCHY: Keep sentences under 12 words.
-5. LENGTH: The script MUST be exactly 120-140 words long. This is a strict requirement for a 45-second video.
-6. THE CLIFFHANGER: Do not wrap up the story neatly. Cut the story off at the absolute peak of the drama or tension. No moral lessons, no conclusions. Just stop abruptly.
-7. AUDIO ONLY: Do not include visual cues, brackets, or emojis."""
+1. NO AI CLICH\u00c9S: Never use "You won't believe", "Little did I know", "Plot twist!", "Fast forward to", "Let's just say", "brace yourself", "here's where it gets interesting".
+2. WRITE LIKE A PERSON TALKING: Use contractions ("I'm", "didn't", "she's"). Use natural filler phrases sparingly: "honestly", "so basically", "and then", "the thing is".
+3. PROPER APOSTROPHES: Always write "I'm" not "im", "don't" not "dont". The TTS voice will butcher missing apostrophes.
+4. SHORT SENTENCES: Maximum 15 words per sentence for punchy delivery. Mix short and medium sentences.
+5. LENGTH: 130-150 words EXACTLY. Long enough to set up the story properly, short enough for 60 seconds.
+6. CLARITY FIRST: If the Reddit story is confusing or long, your job is to distill it into something anyone can follow in 60 seconds.
+7. AUDIO ONLY: No brackets, no stage directions, no emojis, no markdown."""
 
-USER_PROMPT_TEMPLATE = """Rewrite this Reddit story into a viral YouTube Shorts script.
+USER_PROMPT_TEMPLATE = """Transform this Reddit story into a viral YouTube Shorts script.
 
-You MUST respond with a valid JSON object in exactly this format:
-{
-  "headline": "A punchy ALL CAPS confession-style title (5-8 words). Example: 'I RUINED MY BROTHER'S WEDDING'",
-  "script": "The rewritten story (120-140 words, ending abruptly on a cliffhanger)"
-}
+The viewer has NO context — they haven't read the post. Make sure they understand who everyone is, what the situation is, and why it matters. The first sentence must hook them immediately.
+
+Respond ONLY with a valid JSON object in this exact format:
+{{
+  "headline": "A punchy ALL CAPS confession-style title (5-9 words). Must feel like a tabloid headline or a shocked reaction. Examples: 'I REPORTED MY OWN BOSS TO HR', 'MY ROOMMATE SOLD MY STUFF WHILE I SLEPT'",
+  "script": "The rewritten story (130-150 words). Opens with the hook, clearly sets up the situation, builds tension, ends on a cliffhanger."
+}}
 
 Original Reddit title: {title}
 
@@ -73,8 +82,8 @@ def rewrite_story(title, body):
             contents=prompt,
             config={
                 "system_instruction": SYSTEM_PROMPT,
-                "temperature": 0.9,
-                "max_output_tokens": 500,
+                "temperature": 1.0,   # Higher creativity — less bland, more punchy
+                "max_output_tokens": 600,
                 "response_mime_type": "application/json",
             }
         )
@@ -99,10 +108,10 @@ def rewrite_story(title, body):
         
         # Validate
         word_count = len(script.split())
-        if word_count > 160:
-            # Trim to ~140 words at a sentence boundary
+        if word_count > 170:
+            # Trim to ~150 words at a sentence boundary
             words = script.split()
-            trimmed = ' '.join(words[:140])
+            trimmed = ' '.join(words[:150])
             
             # Find the last sentence boundary (. ! or ?)
             boundaries = [trimmed.rfind('.'), trimmed.rfind('!'), trimmed.rfind('?')]
@@ -114,8 +123,7 @@ def rewrite_story(title, body):
                 script = trimmed[:last_boundary + 1]
             else:
                 script = trimmed
-            print(f"  ⚠️ Script was {word_count} words — trimmed to {len(script.split())}")
-        
+            print(f"  ⚠️ Script was {word_count} words — trimmed to {len(script.split())}")        
         print(f"  ✅ AI script generated! Headline: \"{headline}\"")
         print(f"     Script: {len(script.split())} words")
         
