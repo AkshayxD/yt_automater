@@ -18,8 +18,9 @@ VOICE_POOL = [
     ("en-US-GuyNeural", "Conversational male voice"),
 ]
 
-# Slightly slower than the old +15% — gives the narration more weight and drama
-TTS_RATE = "+10%"
+# Slightly below default (-5%) — adds natural pauses between words/sentences,
+# making the narration feel measured and clear rather than rushed or continuous.
+TTS_RATE = "-5%"
 
 
 async def _generate(text, output_mp3, output_srt, voice, rate):
