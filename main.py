@@ -17,6 +17,7 @@ from video_gen import create_video
 from youtube_api import get_authenticated_service
 from uploader import upload_video
 from script_writer import rewrite_story
+from background_manager import pick_background_segment, record_used_segment
 
 # --- Directories ---
 VIDEOS_DIR = "videos_to_upload"
@@ -205,108 +206,152 @@ def create_and_upload_viral_short(youtube_client=None, history=None, voice=None,
     # --- AI Script Rewriting ---
     # Transform raw Reddit text into a viral narration script with punchy headline
     print("\n  🤖 AI Script Rewriting...")
-    ai_headline, script_text = rewrite_story(title, body)
+    ai_headline, script_text, script_text2 = rewrite_story(title, body)
     print(f"  📰 Headline: {ai_headline}")
-    print(f"  📏 Script length: {len(script_text.split())} words")
+    
+    parts = []
+    if script_text2:
+        parts.append({"script": script_text, "suffix": " (Part 1)", "is_part1": True})
+        parts.append({"script": script_text2, "suffix": " (Part 2)", "is_part1": False})
+    else:
+        parts.append({"script": script_text, "suffix": "", "is_part1": True})
 
-    # Put the headline back into the script so the voiceover actually speaks it!
-    full_spoken_text = f"{ai_headline}... {script_text}"
-
-    # Safety check on length (prevent 60s+ Shorts)
-    if len(full_spoken_text.split()) > 190:
-        print("  ⚠️ Script unusually long — trimming")
-        trimmed = ' '.join(full_spoken_text.split()[:150])
+    results_list = []
+    
+    for part in parts:
+        print(f"\n  ▶ Processing {part['suffix'] or 'Full Story'}...")
         
-        # Find the last sentence boundary (. ! or ?)
-        boundaries = [trimmed.rfind('.'), trimmed.rfind('!'), trimmed.rfind('?')]
-        last_boundary = max(boundaries)
-        
-        if last_boundary > int(len(trimmed) * 0.7):
-            full_spoken_text = trimmed[:last_boundary + 1]
+        # Put the headline back into the script so the voiceover actually speaks it!
+        # Only speak the headline for Part 1 or full stories
+        if part['is_part1']:
+            full_spoken_text = f"{ai_headline}. {part['script']}"
         else:
-            full_spoken_text = trimmed
+            full_spoken_text = part['script']
 
-    # 2. Generate Audio and Word-Level Subtitles (SRT with exact timestamps)
-    print("\n  🎤 Generating voiceover and subtitles...")
-    audio_file = os.path.join(TEMP_DIR, "audio.mp3")
-    subs_file = os.path.join(TEMP_DIR, "subs.srt")
+        # Safety check on length (prevent 60s+ Shorts) — target is 110-125 words
+        if len(full_spoken_text.split()) > 160:
+            print("  ⚠️ Script unusually long — trimming")
+            trimmed = ' '.join(full_spoken_text.split()[:130])
+            
+            # Find the last sentence boundary (. ! or ?)
+            boundaries = [trimmed.rfind('.'), trimmed.rfind('!'), trimmed.rfind('?')]
+            last_boundary = max(boundaries)
+            
+            if last_boundary > int(len(trimmed) * 0.7):
+                full_spoken_text = trimmed[:last_boundary + 1]
+            else:
+                full_spoken_text = trimmed
 
-    mp3_path, srt_path = generate_audio_and_subs(full_spoken_text, audio_file, subs_file, voice=voice)
+        # 2. Generate Audio and Word-Level Subtitles (SRT with exact timestamps)
+        print("  🎤 Generating voiceover and subtitles...")
+        audio_file = os.path.join(TEMP_DIR, "audio.mp3")
+        subs_file = os.path.join(TEMP_DIR, "subs.srt")
 
-    if not mp3_path or not srt_path:
-        print("  ❌ Failed to generate audio. Aborting.")
-        return result
+        mp3_path, srt_path = generate_audio_and_subs(full_spoken_text, audio_file, subs_file, voice=voice)
 
-    # 3. Assemble Video
-    print("\n  🎬 Assembling video...")
-    safe_title = "".join([c for c in title if c.isalpha() or c.isdigit() or c == ' ']).rstrip()
-    safe_title_underscored = safe_title.replace(" ", "_")[:50]
-    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-    final_video_path = os.path.join(VIDEOS_DIR, f"{safe_title_underscored}_{timestamp}.mp4")
+        if not mp3_path or not srt_path:
+            print("  ❌ Failed to generate audio. Aborting this part.")
+            continue
 
-    # Pick a background video (copyright-safe for monetization)
-    if background_path and os.path.exists(background_path):
-        bg_video = background_path
-        print(f"  Using specified background: {bg_video}")
-    else:
-        minecraft_bgs = []
-        if os.path.exists(ASSETS_DIR):
-            for f in os.listdir(ASSETS_DIR):
-                if f.endswith(('.mp4', '.webm', '.mov')):
-                    minecraft_bgs.append(os.path.join(ASSETS_DIR, f))
+        # 3. Assemble Video
+        print("  🎥 Assembling video...")
+        # TASK 6: Use AI headline for filename instead of raw Reddit title
+        safe_title = "".join([c for c in ai_headline if c.isalpha() or c.isdigit() or c == ' ']).rstrip()
+        safe_title_underscored = safe_title.replace(" ", "_")[:50]
+        if part['suffix']:
+            safe_title_underscored += f"_Part_{part['suffix'][-2]}"
+        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+        final_video_path = os.path.join(VIDEOS_DIR, f"{safe_title_underscored}_{timestamp}.mp4")
 
-        bg_video = random.choice(minecraft_bgs) if minecraft_bgs else os.path.join(ASSETS_DIR, "background_small.mp4")
-        print(f"  Selected background: {bg_video}")
+        # Pick a background video + segment that hasn't been used before
+        # background_manager tracks all used time ranges across all background files
+        if background_path and os.path.exists(background_path):
+            # Manually specified background: use manager just for the start time
+            bg_video = background_path
+            bg_start = None  # Will be handled inside create_video (random fallback)
+            print(f"  Using specified background: {bg_video}")
+        else:
+            # Let the manager pick the best video + segment
+            bg_video, bg_start = pick_background_segment(needed_duration=50.0)  # ~45s buffer
+            if bg_video is None:
+                bg_video = os.path.join(ASSETS_DIR, "background_small.mp4")
+                bg_start = None
 
-    try:
-        rendered_video = create_video(
-            mp3_path, srt_path,
-            background_path=bg_video,
-            output_path=final_video_path
-        )
-    except Exception as e:
-        print(f"  ❌ Error during video generation: {e}")
-        return result
-
-    result['file_path'] = rendered_video
-
-    # 4. Generate viral metadata — use AI headline as the YouTube title
-    short_title, description, tags = generate_viral_metadata(ai_headline, body, subreddit)
-    print(f"\n  📋 Upload title: {short_title}")
-
-    # 5. Upload to YouTube
-    if youtube_client:
-        print("\n  📤 Uploading to YouTube...")
         try:
-            video_id = upload_video(
-                youtube=youtube_client,
-                file_path=rendered_video,
-                title=short_title,
-                description=description,
-                category_id="24",  # Entertainment
-                keywords=tags,
-                privacy_status="public"
+            rendered_video = create_video(
+                mp3_path, srt_path,
+                background_path=bg_video,
+                output_path=final_video_path,
+                bg_start_time=bg_start
             )
-
-            if video_id:
-                result['success'] = True
-                result['title'] = title
-                result['video_id'] = video_id
-
-                # Move to uploaded folder
-                dest_path = os.path.join(UPLOADED_DIR, os.path.basename(rendered_video))
-                shutil.move(rendered_video, dest_path)
-                print(f"  Moved video to {UPLOADED_DIR}/")
-
+            # Record the used segment so it won't be reused
+            if bg_start is not None and rendered_video:
+                from moviepy.editor import AudioFileClip as _AFC
+                _audio_dur = _AFC(mp3_path).duration
+                record_used_segment(bg_video, bg_start, bg_start + _audio_dur)
         except Exception as e:
-            print(f"  ❌ Failed to upload video: {e}")
-            print(f"  Your video is saved at {rendered_video}")
-    else:
-        print(f"\n  ⏭️ Skipping upload (no YouTube client or upload disabled)")
-        print(f"  Video saved at: {rendered_video}")
-        result['success'] = True
-        result['title'] = title
+            print(f"  ❌ Error during video generation: {e}")
+            continue
 
+        part_result = {'success': False, 'title': None, 'video_id': None, 'file_path': rendered_video}
+
+        # 4. Generate viral metadata
+        short_title, description, tags = generate_viral_metadata(ai_headline, body, subreddit)
+        upload_title = short_title + part['suffix']
+        print(f"  📋 Upload title: {upload_title}")
+
+        # 5. Upload to YouTube
+        if youtube_client:
+            print("  📤 Uploading to YouTube...")
+            try:
+                video_id = upload_video(
+                    youtube=youtube_client,
+                    file_path=rendered_video,
+                    title=upload_title,
+                    description=description,
+                    category_id="24",  # Entertainment
+                    keywords=tags,
+                    privacy_status="public"
+                )
+
+                if video_id:
+                    part_result['success'] = True
+                    part_result['title'] = title + part['suffix']
+                    part_result['video_id'] = video_id
+
+                    # Move to uploaded folder
+                    dest_path = os.path.join(UPLOADED_DIR, os.path.basename(rendered_video))
+                    shutil.move(rendered_video, dest_path)
+                    print(f"  Moved video to {UPLOADED_DIR}/")
+
+                    # PINNED COMMENT LOGIC
+                    # If it's part 1 of a multi-part series, pin a comment linking to the profile.
+                    # If it's part 2 or a single video, pin a comment asking the "Who was right?" question.
+                    try:
+                        from uploader import add_pinned_comment
+                        if part['suffix'] == " (Part 1)":
+                            comment_text = "Part 2 is on my profile! Subscribe so you don't miss the ending 👇"
+                        else:
+                            comment_text = "Who do you think was right? Let me know down below! 👇"
+                        
+                        add_pinned_comment(youtube_client, video_id, comment_text)
+                    except Exception as e:
+                        print(f"  ⚠️ Could not pin comment: {e}")
+
+            except Exception as e:
+                print(f"  ❌ Failed to upload video: {e}")
+                print(f"  Your video is saved at {rendered_video}")
+        else:
+            print(f"  ⏭️ Skipping upload (no YouTube client or upload disabled)")
+            print(f"  Video saved at: {rendered_video}")
+            part_result['success'] = True
+            part_result['title'] = title + part['suffix']
+
+        results_list.append(part_result)
+
+    # Return the first part's result, or an aggregated result
+    if results_list:
+        return results_list[0]
     return result
 
 

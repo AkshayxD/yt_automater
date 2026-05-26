@@ -123,3 +123,34 @@ def resumable_upload(request):
             time.sleep(sleep_seconds)
     
     return None
+
+def add_pinned_comment(youtube, video_id, text):
+    """
+    Adds a top-level comment to the video as the channel owner.
+    (Note: YouTube Data API doesn't support 'pinning', but as the first comment
+     from the creator, it stays at the top and acts as comment bait).
+    """
+    print(f"  💬 Posting comment bait to video {video_id}...")
+    try:
+        body = {
+            'snippet': {
+                'videoId': video_id,
+                'topLevelComment': {
+                    'snippet': {
+                        'textOriginal': text
+                    }
+                }
+            }
+        }
+        response = youtube.commentThreads().insert(
+            part='snippet',
+            body=body
+        ).execute()
+        
+        comment_id = response['snippet']['topLevelComment']['id']
+        print(f"  ✅ Comment posted successfully! (ID: {comment_id})")
+        return comment_id
+    except Exception as e:
+        print(f"  ❌ Failed to post comment: {e}")
+        return None
+

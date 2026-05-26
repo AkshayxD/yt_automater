@@ -21,33 +21,34 @@ if sys.stdout.encoding != 'utf-8':
 GEMINI_API_KEY = os.environ.get("GEMINI_API_KEY", "")
 
 # The prompt that transforms flat Reddit text into viral gold
-SYSTEM_PROMPT = """You are the top viral YouTube Shorts scriptwriter. You have written scripts that got 50M+ views. Your specialty is Reddit storytelling — turning raw, confusing Reddit posts into perfectly clear, emotionally gripping 60-second narrations.
+SYSTEM_PROMPT = """You are the #1 viral YouTube Shorts scriptwriter. Your scripts have hit 50M+ views. You specialize in Reddit narration — turning raw stories into 45-second scroll-stoppers.
 
-YOUR #1 GOAL: Make the viewer immediately understand the situation AND feel something (anger, shock, curiosity, secondhand embarrassment). If they don't understand what's happening, they scroll. If they don't feel something, they scroll.
+YOUR ONLY GOAL: The viewer must feel something INSTANTLY and be unable to stop watching.
 
 THE PERFECT SCRIPT STRUCTURE:
-1. HOOK (first 1-2 sentences): Open with the most shocking, embarrassing, or curiosity-inducing moment. Start IN the drama. Use questions or statements that create a "wait, what?" reaction. Example: "My boss just texted me to come to his office. I had no idea he'd just read the message I sent him by mistake."
-2. SETUP (3-5 sentences): Quickly and CLEARLY explain who the people are and what the situation is. The viewer hasn't read the Reddit post — they know NOTHING. Make it crystal clear without being boring. Use real names if available (or generic ones like "my roommate", "my sister"), not just "they".
-3. ESCALATION (4-6 sentences): Build the tension. Show the conflict developing. Make the viewer feel the unfairness, the audacity, or the stupidity of the situation.
-4. CLIFFHANGER: Cut off at the peak of drama. No resolution. No moral. Just "and then..."
+1. HOOK — first 1 sentence ONLY. Drop directly into the most dramatic moment. The first word must be a shock word or action verb. NEVER start with "I", "My", "So", or "Today". Good openers: "She sold my car while I was sleeping.", "My boss just fired me — by accident.", "The text I sent to the wrong person ended my marriage."
+2. SETUP (2-3 sentences): Briefly explain who the people are and what happened. The viewer knows NOTHING. Be crystal clear. Use names or clear roles ("my landlord", "my sister's boyfriend").
+3. ESCALATION (4-5 sentences): Build tension fast. Show the conflict. Make the viewer feel the unfairness, audacity, or stupidity.
+4. PART 1 CLIFFHANGER (If story is long): If the story requires a Part 2, end Part 1 abruptly at peak tension and say: "Part 2 is on my profile."
+5. COMMENT BAIT ENDING (For the final part): The LAST sentence of the final part must be an open question that forces the viewer to comment. Example: "Was I right? Tell me in the comments." or "Comment 'YTA' or 'NTA'." No resolution.
 
-CRITICAL RULES FOR AUTHENTICITY:
-1. NO AI CLICH\u00c9S: Never use "You won't believe", "Little did I know", "Plot twist!", "Fast forward to", "Let's just say", "brace yourself", "here's where it gets interesting".
-2. WRITE LIKE A PERSON TALKING: Use contractions ("I'm", "didn't", "she's"). Use natural filler phrases sparingly: "honestly", "so basically", "and then", "the thing is".
-3. PROPER APOSTROPHES: Always write "I'm" not "im", "don't" not "dont". The TTS voice will butcher missing apostrophes.
-4. SHORT SENTENCES: Maximum 15 words per sentence for punchy delivery. Mix short and medium sentences.
-5. LENGTH: 130-150 words EXACTLY. Long enough to set up the story properly, short enough for 60 seconds.
-6. CLARITY FIRST: If the Reddit story is confusing or long, your job is to distill it into something anyone can follow in 60 seconds.
-7. AUDIO ONLY: No brackets, no stage directions, no emojis, no markdown."""
+CRITICAL RULES:
+1. NO AI CLICHÉS: Never use "You won't believe", "Little did I know", "Plot twist", "Fast forward", "Let's just say", "brace yourself", "here's where it gets interesting", "needless to say".
+2. NO SOFT OPENERS: Never start with "I", "My", "So", "Today", "Once", "There was", "Meet". Start with the drama.
+3. WRITE LIKE A PERSON: Use contractions (I'm, didn't, she's). Short punchy sentences. Max 12 words per sentence.
+4. PROPER APOSTROPHES: Always write "I'm" not "im", "don't" not "dont". TTS butchers missing apostrophes.
+5. LENGTH: 110-125 words EXACTLY. Tight and punchy. This is a 45-second Short, not an essay.
+6. AUDIO ONLY: No brackets, no stage directions, no emojis, no markdown."""
 
 USER_PROMPT_TEMPLATE = """Transform this Reddit story into a viral YouTube Shorts script.
 
-The viewer has NO context — they haven't read the post. Make sure they understand who everyone is, what the situation is, and why it matters. The first sentence must hook them immediately.
+The viewer has NO context. The first word of the script must be a shock word or action verb — NOT "I", "My", or "So". End the final script with an open question to bait comments (e.g. "Who was wrong?"). If the story is long, split it into two parts.
 
 Respond ONLY with a valid JSON object in this exact format:
 {{
-  "headline": "A punchy ALL CAPS confession-style title (5-9 words). Must feel like a tabloid headline or a shocked reaction. Examples: 'I REPORTED MY OWN BOSS TO HR', 'MY ROOMMATE SOLD MY STUFF WHILE I SLEPT'",
-  "script": "The rewritten story (130-150 words). Opens with the hook, clearly sets up the situation, builds tension, ends on a cliffhanger."
+  "headline": "A punchy ALL CAPS confession-style title (5-9 words). Examples: 'I REPORTED MY OWN BOSS TO HR', 'SHE SOLD MY CAR WHILE I WAS ASLEEP'",
+  "script": "Part 1 (110-125 words). Starts dramatic. Builds tension. If there is a Part 2, end abruptly with 'Part 2 is on my profile.' If no Part 2, end with the comment-bait question.",
+  "script_part2": "(Optional) Part 2 (110-125 words). ONLY include if the original story is too long to fit in 125 words. Starts with a 1-sentence recap. Ends with the comment-bait question."
 }}
 
 Original Reddit title: {title}
@@ -61,13 +62,13 @@ def rewrite_story(title, body):
     Uses Gemini 2.5 Flash to rewrite a Reddit story into a viral script.
     
     Returns:
-        tuple: (headline, script) — the punchy title and rewritten body
-        Falls back to (title, body) if API is unavailable
+        tuple: (headline, script_part1, script_part2) — the punchy title and rewritten body parts (part2 may be None)
+        Falls back to (title, body, None) if API is unavailable
     """
     api_key = os.environ.get("GEMINI_API_KEY")
     if not api_key:
         print("  ⚠️ GEMINI_API_KEY not found! Falling back to raw text.")
-        return title, body
+        return title, body, None
 
     try:
         from google import genai
@@ -94,48 +95,52 @@ def rewrite_story(title, body):
             data = json.loads(result_text)
             headline = data.get("headline", title).strip()
             script = data.get("script", "").strip()
+            script_part2 = data.get("script_part2", "")
+            if script_part2:
+                script_part2 = script_part2.strip()
             
             if not script:
                 print("  ⚠️ AI generated an empty script! Falling back to raw text.")
-                return title, body
+                return title, body, None
         except json.JSONDecodeError:
             print("  ⚠️ Failed to parse JSON, falling back to raw text")
-            return title, body
+            return title, body, None
         
         # Remove any markdown formatting
         headline = re.sub(r'[*#_]', '', headline).strip('"').strip("'")
         script = re.sub(r'[*#_]', '', script)
         
-        # Validate
+        # Validate — target is 110-125 words for a ~45s Short
         word_count = len(script.split())
-        if word_count > 170:
-            # Trim to ~150 words at a sentence boundary
+        if word_count > 140:
+            # Trim to ~120 words at a sentence boundary
             words = script.split()
-            trimmed = ' '.join(words[:150])
-            
+            trimmed = ' '.join(words[:125])
+
             # Find the last sentence boundary (. ! or ?)
             boundaries = [trimmed.rfind('.'), trimmed.rfind('!'), trimmed.rfind('?')]
             last_boundary = max(boundaries)
-            
+
             # Only trim if the boundary is in the last 30% of the trimmed string
-            # to prevent cutting off the entire story due to early punctuation
             if last_boundary > int(len(trimmed) * 0.7):
                 script = trimmed[:last_boundary + 1]
             else:
                 script = trimmed
             print(f"  ⚠️ Script was {word_count} words — trimmed to {len(script.split())}")        
         print(f"  ✅ AI script generated! Headline: \"{headline}\"")
-        print(f"     Script: {len(script.split())} words")
+        print(f"     Script 1: {len(script.split())} words")
+        if script_part2:
+            print(f"     Script 2: {len(script_part2.split())} words")
         
-        return headline, script
+        return headline, script, script_part2
         
     except ImportError:
         print("  ⚠️ google-genai not installed — using raw text")
         print("     Install with: pip install google-genai")
-        return title, body
+        return title, body, None
     except Exception as e:
         print(f"  ⚠️ Gemini API error: {e} — using raw text")
-        return title, body
+        return title, body, None
 
 
 if __name__ == "__main__":
@@ -154,8 +159,10 @@ if __name__ == "__main__":
         "I thought I was getting fired for sure."
     )
     
-    headline, script = rewrite_story(test_title, test_body)
+    headline, script, script2 = rewrite_story(test_title, test_body)
     print(f"\n--- RESULT ---")
     print(f"HEADLINE: {headline}")
-    print(f"SCRIPT: {script}")
-    print(f"WORDS: {len(script.split())}")
+    print(f"SCRIPT 1: {script}")
+    if script2:
+        print(f"SCRIPT 2: {script2}")
+    print(f"WORDS 1: {len(script.split())}")

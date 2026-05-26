@@ -19,6 +19,7 @@ from moviepy.editor import (
     VideoFileClip, AudioFileClip, TextClip, CompositeVideoClip,
     ColorClip
 )
+from moviepy.audio.AudioClip import CompositeAudioClip
 import numpy as np
 
 # --- Configuration ---
@@ -38,16 +39,17 @@ else:
     print(f"  Note: Montserrat-ExtraBold.ttf not found, using {FONT_NAME}")
 
 # --- Subtitle Styling ---
-# Pure white + thick black stroke is the #1 most readable style on any background
-# Used by MrBeast Shorts, Sidemen Shorts, and every top viral creator
-ACTIVE_COLOR = 'white'             # Pure white — max contrast on any background
-INACTIVE_COLOR = 'white'
-ACTIVE_FONT_SIZE = 95              # Slightly larger for phone readability
-STROKE_WIDTH = 9                   # THICK black stroke — the key to readability
+# Yellow text + thick black stroke = #1 viral Reddit/narration Shorts style
+# Used by SpeedyMorph, WrathOfGod, top Reddit narration & true crime channels
+# The yellow pops on ANY background color (dark or bright gameplay footage)
+ACTIVE_COLOR = '#FFE000'           # Bright viral yellow — pops on any BG
+INACTIVE_COLOR = '#FFE000'
+ACTIVE_FONT_SIZE = 95              # Keep size unchanged
+STROKE_WIDTH = 10                  # Slightly thicker stroke for yellow legibility
 STROKE_COLOR = 'black'
 
-# 3 words per chunk gives a natural reading cadence without feeling rushed
-WORDS_PER_CHUNK = 3
+# 1 word per chunk for viral TikTok/Shorts "karaoke" style
+WORDS_PER_CHUNK = 1
 
 
 def parse_srt(srt_file):
@@ -108,20 +110,19 @@ def group_words_into_chunks(words, words_per_chunk=WORDS_PER_CHUNK):
     return chunks
 
 
-def create_subtitle_clips(chunks):
+def create_subtitle_clips(chunks, y_pos=None):
     """
-    Creates single-line centered subtitle clips with the viral Shorts style:
+    Creates single-line centered subtitle clips with the viral Shorts style.
 
-    - ONE line at a time (no stacking) — this is what actual viral Shorts do
-    - Each chunk is 3 words, displayed in ALL CAPS
-    - Pure WHITE text with THICK (9px) black stroke — max readability on any BG
-    - Dark semi-transparent pill bar behind text for extra contrast
-    - Positioned at ~55% from top (screen center, well above YouTube's UI)
+    Args:
+        chunks: List of word chunks with timing.
+        y_pos: Vertical position in pixels. If None, uses 55% of frame height.
 
-    This is the exact style used by MrBeast Shorts, Sidemen, top Reddit narrators.
     Returns a list of moviepy clips (text + background bars interleaved).
     """
     subtitle_clips = []
+    if y_pos is None:
+        y_pos = int(VIDEO_HEIGHT * 0.55)
 
     for chunk in chunks:
         display_text = chunk['text'].upper()
@@ -155,8 +156,7 @@ def create_subtitle_clips(chunks):
                 align='center'
             )
 
-        # Position at 55% from top — screen center on 9:16, above YT buttons
-        y_pos = int(VIDEO_HEIGHT * 0.55)
+        # Position is passed as parameter (set per-video in create_video for variety)
 
         # --- Dark background bar behind text ---
         bar_padding_x = 28
@@ -170,10 +170,18 @@ def create_subtitle_clips(chunks):
                   .set_end(end)
                   .set_position(('center', y_pos - bar_padding_y)))
 
+        # --- Viral Pop Animation ---
+        # Scale down slightly over the first 0.1 seconds (e.g., 1.15x -> 1.0x)
+        def pop_effect(t):
+            if t < 0.1:
+                return 1.15 - (1.5 * t)
+            return 1.0
+
         txt_clip = (txt_clip
                     .set_position(('center', y_pos))
                     .set_start(start)
-                    .set_end(end))
+                    .set_end(end)
+                    .resize(pop_effect)) # Apply the pop animation
 
         # Bar first (behind), then text (on top)
         subtitle_clips.append(bg_bar)
@@ -218,14 +226,24 @@ def trim_audio_silence(audio_clip, threshold_db=-40):
 
 
 def create_video(audio_path, srt_path, background_path="assets/background_small.mp4",
-                 output_path="final_video.mp4"):
+                 output_path="final_video.mp4", bg_start_time=None):
     """
     Assembles the final video by combining background, audio, and animated captions.
+
+    Args:
+        audio_path: Path to the voiceover MP3.
+        srt_path: Path to the word-level SRT subtitle file.
+        background_path: Path to the background video file.
+        output_path: Where to save the final MP4.
+        bg_start_time: If provided, use this exact start time in the background video.
+                       If None, picks a random start (legacy behavior).
+                       Set by background_manager.pick_background_segment() to ensure
+                       no two shorts use the same footage from the same file.
 
     Features:
     - Word-level synced subtitles (exact timing from edge-tts WordBoundary)
     - Montserrat ExtraBold font — viral Shorts standard
-    - 2 words per chunk, single centered line — no overlap
+    - 3 words per chunk, single centered line — no overlap
     - Dark gradient overlay for text readability
     - Abrupt ending (trailing silence trimmed)
     - Optimized for 1080x1920 vertical (YouTube Shorts)
@@ -244,7 +262,8 @@ def create_video(audio_path, srt_path, background_path="assets/background_small.
         audio_duration = 59.5
 
     # --- Background Video ---
-    # ONLY use Minecraft parkour videos (copyright-safe for monetization)
+    # All backgrounds are CC0 (Pixabay License or equivalent) — safe for monetization.
+    # The bg_start_time is managed by background_manager to avoid reusing footage.
     bg_clip = None
 
     if not os.path.exists(background_path):
@@ -265,20 +284,27 @@ def create_video(audio_path, srt_path, background_path="assets/background_small.
             from moviepy.video.fx.all import loop
             bg_clip = bg_clip.fx(loop, duration=audio_duration)
 
-        # Random starting point for variety across videos
-        max_start = max(0, bg_clip.duration - audio_duration)
-        start_time = random.uniform(0, max_start)
-        bg_clip = bg_clip.subclip(start_time, start_time + audio_duration)
+        # Use the manager-assigned start time if provided, else pick randomly
+        if bg_start_time is not None:
+            start_time = bg_start_time
+        else:
+            max_start = max(0, bg_clip.duration - audio_duration)
+            start_time = random.uniform(0, max_start)
+
+        end_time = min(start_time + audio_duration, bg_clip.duration)
+        bg_clip = bg_clip.subclip(start_time, end_time)
 
         # Crop to vertical 9:16
+        # Random ±50px horizontal offset = every video has a unique pixel fingerprint
+        # Prevents YouTube's visual deduplication from flagging the channel as automated
         bg_clip = bg_clip.resize(height=VIDEO_HEIGHT)
         w, h = bg_clip.size
         x_center = w / 2
         half_width = VIDEO_WIDTH / 2
-        bg_clip = bg_clip.crop(
-            x1=x_center - half_width, y1=0,
-            x2=x_center + half_width, y2=VIDEO_HEIGHT
-        )
+        crop_offset = random.randint(-50, 50)  # Unique per video
+        x1 = max(0, x_center - half_width + crop_offset)
+        x2 = min(w, x_center + half_width + crop_offset)
+        bg_clip = bg_clip.crop(x1=x1, y1=0, x2=x2, y2=VIDEO_HEIGHT)
     else:
         print("  ⚠️ No background video found — using dark background")
         bg_clip = ColorClip(
@@ -298,8 +324,37 @@ def create_video(audio_path, srt_path, background_path="assets/background_small.
                        .set_position(('center', 'bottom'))
                        .set_opacity(0.4))
 
-    # Attach audio
-    video_with_audio = bg_clip.set_audio(audio)
+    # --- Background Music (CC0 tracks from assets/music/) ---
+    # Subtle ambient music at 12% volume — makes the video feel produced, not robotic.
+    # Drop any CC0/royalty-free .mp3 files into assets/music/ to enable this.
+    music_files = glob.glob(os.path.join('assets', 'music', '*.mp3'))
+    if music_files:
+        music_path = random.choice(music_files)
+        music_name = os.path.basename(music_path)
+        print(f"  Adding background music: {music_name}")
+        try:
+            music = AudioFileClip(music_path)
+            # Loop music if shorter than the video
+            if music.duration < audio_duration:
+                from moviepy.audio.fx.all import audio_loop
+                music = music.fx(audio_loop, duration=audio_duration)
+            else:
+                music = music.subclip(0, audio_duration)
+            music = music.volumex(0.12)   # 12% volume — background, not competing
+            mixed_audio = CompositeAudioClip([audio, music])
+        except Exception as e:
+            print(f"  Note: Music load failed ({e}) — using voiceover only")
+            mixed_audio = audio
+    else:
+        print("  No music files in assets/music/ — add CC0 .mp3 files for better retention")
+        mixed_audio = audio
+
+    # Attach mixed audio
+    video_with_audio = bg_clip.set_audio(mixed_audio)
+
+    # --- Random caption y-position (50%-60% from top) ---
+    # Slight variation per video avoids a repetitive visual template fingerprint
+    caption_y = int(VIDEO_HEIGHT * random.uniform(0.50, 0.60))
 
     # --- Animated Subtitles ---
     print("  Generating animated subtitles...")
@@ -310,9 +365,9 @@ def create_video(audio_path, srt_path, background_path="assets/background_small.
         subtitle_clips = []
     else:
         chunks = group_words_into_chunks(words)
-        subtitle_clips = create_subtitle_clips(chunks)
+        subtitle_clips = create_subtitle_clips(chunks, y_pos=caption_y)
         print(f"  Created {len(subtitle_clips)} subtitle clips "
-              f"from {len(words)} words ({WORDS_PER_CHUNK} words/chunk)")
+              f"from {len(words)} words ({WORDS_PER_CHUNK} words/chunk) at y={caption_y}px")
 
     # --- Composite Everything ---
     print("  Compositing layers...")

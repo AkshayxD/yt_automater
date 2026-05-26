@@ -177,11 +177,16 @@ def get_reddit_story():
     subreddits_to_try = random.sample(SUBREDDITS, min(5, len(SUBREDDITS)))
 
     for subreddit in subreddits_to_try:
-        timeframe = random.choice(["day", "week", "month"])
-
-        print(f"Fetching from r/{subreddit} (Top of the {timeframe}) via RSS...")
-
-        url = f"https://www.reddit.com/r/{subreddit}/top/.rss?t={timeframe}"
+        # Mix top (proven viral) with rising (fresh, untouched, first-mover)
+        sort_type = random.choice(["top", "top", "rising"])
+        
+        if sort_type == "top":
+            timeframe = random.choice(["day", "week"])
+            url = f"https://www.reddit.com/r/{subreddit}/top/.rss?t={timeframe}"
+            print(f"Fetching from r/{subreddit} (Top of the {timeframe}) via RSS...")
+        else:
+            url = f"https://www.reddit.com/r/{subreddit}/rising/.rss"
+            print(f"Fetching from r/{subreddit} (Rising - First Mover) via RSS...")
 
         try:
             response = requests.get(url, headers=headers, timeout=15)
@@ -217,8 +222,9 @@ def get_reddit_story():
 
                     word_count = len(body_text.split())
 
-                    # Target 120-155 words for 35-50 second videos (sweet spot)
-                    if 120 < word_count < 160:
+                    # Target 120-155 words for a single 45s Short.
+                    # Up to 350 words is allowed for Part 1 / Part 2 splits.
+                    if 120 < word_count < 350:
                         viral_score = score_story_virality(title, body_text)
                         all_valid_posts.append({
                             'title': title,
