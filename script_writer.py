@@ -4,7 +4,7 @@ AI Script Writer — Transforms raw Reddit stories into viral narration scripts.
 Uses Google Gemini 2.5 Flash (free tier: 15 RPM, 1500 RPD) to:
 1. Create a punchy, news-headline-style title
 2. Rewrite the story for maximum retention
-3. Keep it under 140 words for 60-second Shorts
+3. Keep it under 115 words for 45-second Shorts (tight = high completion rate)
 
 Requires: GEMINI_API_KEY environment variable
 Fallback: Returns original text if API is unavailable
@@ -28,27 +28,27 @@ YOUR ONLY GOAL: The viewer must feel something INSTANTLY and be unable to stop w
 THE PERFECT SCRIPT STRUCTURE:
 1. HOOK — first 1 sentence ONLY. Drop directly into the most dramatic moment. The first word must be a shock word or action verb. NEVER start with "I", "My", "So", or "Today". Good openers: "She sold my car while I was sleeping.", "My boss just fired me — by accident.", "The text I sent to the wrong person ended my marriage."
 2. SETUP (2-3 sentences): Briefly explain who the people are and what happened. The viewer knows NOTHING. Be crystal clear. Use names or clear roles ("my landlord", "my sister's boyfriend").
-3. ESCALATION (4-5 sentences): Build tension fast. Show the conflict. Make the viewer feel the unfairness, audacity, or stupidity.
+3. ESCALATION (3-4 sentences): Build tension fast. Show the conflict. Make the viewer feel the unfairness, audacity, or stupidity.
 4. PART 1 CLIFFHANGER (If story is long): If the story requires a Part 2, end Part 1 abruptly at peak tension and say: "Part 2 is on my profile."
-5. COMMENT BAIT ENDING (For the final part): The LAST sentence of the final part must be an open question that forces the viewer to comment. Example: "Was I right? Tell me in the comments." or "Comment 'YTA' or 'NTA'." No resolution.
+5. COMMENT BAIT ENDING (For the final part): The LAST sentence of the final part must be an open question that forces the viewer to comment. Rotate between styles like: "Was I right? Tell me below.", "Comment KARMA if they deserved it.", "Rate this 1 to 10.", "Would YOU have done the same?", "Who was the real problem here?" No resolution.
 
 CRITICAL RULES:
 1. NO AI CLICHÉS: Never use "You won't believe", "Little did I know", "Plot twist", "Fast forward", "Let's just say", "brace yourself", "here's where it gets interesting", "needless to say".
 2. NO SOFT OPENERS: Never start with "I", "My", "So", "Today", "Once", "There was", "Meet". Start with the drama.
 3. WRITE LIKE A PERSON: Use contractions (I'm, didn't, she's). Short punchy sentences. Max 12 words per sentence.
 4. PROPER APOSTROPHES: Always write "I'm" not "im", "don't" not "dont". TTS butchers missing apostrophes.
-5. LENGTH: 110-125 words EXACTLY. Tight and punchy. This is a 45-second Short, not an essay.
+5. LENGTH: 100-115 words EXACTLY. Tight and punchy. Every extra word kills retention. This is a 45-second Short, not an essay.
 6. AUDIO ONLY: No brackets, no stage directions, no emojis, no markdown."""
 
 USER_PROMPT_TEMPLATE = """Transform this Reddit story into a viral YouTube Shorts script.
 
-The viewer has NO context. The first word of the script must be a shock word or action verb — NOT "I", "My", or "So". End the final script with an open question to bait comments (e.g. "Who was wrong?"). If the story is long, split it into two parts.
+The viewer has NO context. The first word of the script must be a shock word or action verb — NOT "I", "My", or "So". End the final script with an open question to bait comments (rotate styles: "Was I wrong?", "Comment KARMA if they deserved it.", "Rate this 1-10.", etc.). If the story is long, split it into two parts.
 
 Respond ONLY with a valid JSON object in this exact format:
 {{
   "headline": "A punchy ALL CAPS confession-style title (5-9 words). Examples: 'I REPORTED MY OWN BOSS TO HR', 'SHE SOLD MY CAR WHILE I WAS ASLEEP'",
-  "script": "Part 1 (110-125 words). Starts dramatic. Builds tension. If there is a Part 2, end abruptly with 'Part 2 is on my profile.' If no Part 2, end with the comment-bait question.",
-  "script_part2": "(Optional) Part 2 (110-125 words). ONLY include if the original story is too long to fit in 125 words. Starts with a 1-sentence recap. Ends with the comment-bait question."
+  "script": "Part 1 (100-115 words). Starts dramatic. Builds tension. If there is a Part 2, end abruptly with 'Part 2 is on my profile.' If no Part 2, end with the comment-bait question.",
+  "script_part2": "(Optional) Part 2 (100-115 words). ONLY include if the original story is too long to fit in 115 words. Starts with a 1-sentence recap. Ends with the comment-bait question."
 }}
 
 Original Reddit title: {title}
@@ -110,12 +110,12 @@ def rewrite_story(title, body):
         headline = re.sub(r'[*#_]', '', headline).strip('"').strip("'")
         script = re.sub(r'[*#_]', '', script)
         
-        # Validate — target is 110-125 words for a ~45s Short
+        # Validate — target is 100-115 words for a ~45s Short
         word_count = len(script.split())
-        if word_count > 140:
-            # Trim to ~120 words at a sentence boundary
+        if word_count > 125:
+            # Trim to ~115 words at a sentence boundary
             words = script.split()
-            trimmed = ' '.join(words[:125])
+            trimmed = ' '.join(words[:115])
 
             # Find the last sentence boundary (. ! or ?)
             boundaries = [trimmed.rfind('.'), trimmed.rfind('!'), trimmed.rfind('?')]

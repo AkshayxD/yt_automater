@@ -10,12 +10,15 @@ if sys.stdout.encoding != 'utf-8':
     sys.stdout.reconfigure(encoding='utf-8', errors='replace')
     sys.stderr.reconfigure(encoding='utf-8', errors='replace')
 
-# Voice pool — rotating voices prevents audience fatigue and adds variety
+# Voice pool — rotating voices prevents audience fatigue and adds variety.
+# More voices = less channel fatigue, harder for YouTube to flag as automated.
 # Each tuple is (voice_name, description)
 VOICE_POOL = [
     ("en-GB-RyanNeural", "Natural male storyteller"),
     ("en-US-AriaNeural", "Engaging female narrator"),
     ("en-US-GuyNeural", "Conversational male voice"),
+    ("en-US-DavisNeural", "Deep authoritative male"),
+    ("en-US-JennyNeural", "Warm friendly female"),
 ]
 
 # Slightly below default (-5%) — adds natural pauses between words/sentences,

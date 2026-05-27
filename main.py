@@ -27,7 +27,8 @@ ASSETS_DIR = "assets"
 
 # --- Configuration ---
 NUM_VIDEOS = int(os.environ.get("NUM_VIDEOS", "1"))  # How many videos per run
-UPLOAD_COOLDOWN = 300  # 5 minutes between uploads to avoid spam flags
+UPLOAD_COOLDOWN_MIN = 240  # Minimum cooldown between uploads (seconds)
+UPLOAD_COOLDOWN_MAX = 420  # Maximum cooldown — randomized to look human
 HISTORY_FILE = "upload_history.json"
 
 
@@ -74,53 +75,54 @@ def generate_viral_metadata(title, body, subreddit):
     """
     Generates SEO-optimized metadata designed for maximum reach.
     
+    Strategy:
+    - Title: Clean, curiosity-driven, ≤50 chars, no clutter
+    - Description: Hook line + exactly 5 hashtags + CTA
+    - Tags: 10 max (YouTube ignores all tags if you use 60+)
+    
     Returns: (short_title, description, tags)
     """
     # --- TITLE ---
-    # Short, curiosity-driven, under 60 chars, NO #shorts in title
-    # Try to extract the most dramatic phrase
-
-    # Strategy 1: If title has a question, use it directly (shortened)
-    if '?' in title and len(title) < 60:
-        short_title = title
-    else:
-        # Strategy 2: Create a curiosity gap from the title
-        # Truncate at a natural break point
-        short_title = title[:57]
-        # Try to cut at a word boundary
+    # Use the title directly (it's already the AI headline, which is punchy)
+    # Just clean it up and cap the length
+    short_title = title.strip()
+    
+    # Remove redundant quotes/formatting
+    short_title = short_title.strip('"').strip("'").strip()
+    
+    # Cap at 50 chars (front-load keywords, no truncation mid-word)
+    if len(short_title) > 50:
+        short_title = short_title[:47]
         last_space = short_title.rfind(' ')
-        if last_space > 30:
+        if last_space > 25:
             short_title = short_title[:last_space]
-
-        # Add an emotional hook if the title feels flat
-        if not any(c in short_title for c in '?!'):
-            # Check for dramatic keywords and add emphasis
-            short_title_lower = short_title.lower()
-            for kw in ['caught', 'fired', 'revenge', 'karma', 'exposed', 'cheating']:
-                if kw in short_title_lower:
-                    short_title += " 😱"
-                    break
-            else:
-                short_title += "..."
-
-    # Ensure we're under 60 chars
-    if len(short_title) > 60:
-        short_title = short_title[:57] + "..."
+        short_title += "..."
+    
+    # --- Human-like title variations (anti-fingerprinting) ---
+    # Randomly vary punctuation and casing to avoid bot detection patterns
+    title_variation = random.randint(0, 3)
+    if title_variation == 0:
+        pass  # Keep as-is
+    elif title_variation == 1 and not short_title.endswith(('?', '!', '...')):
+        short_title += "..."  # Trailing ellipsis for mystery
+    elif title_variation == 2 and not short_title.endswith(('?', '!', '...')):
+        short_title = short_title.rstrip('.')  # Clean ending
+    # title_variation == 3: keep as-is (no change)
 
     # --- DESCRIPTION ---
-    # Hook line + hashtags + CTA
-    # Extract first compelling sentence from the body
+    # First line = curiosity hook, then strategic hashtags, then CTA
     first_sentence = body.split('.')[0].strip() if body else ""
-    if len(first_sentence) > 150:
-        first_sentence = first_sentence[:147] + "..."
+    if len(first_sentence) > 120:
+        first_sentence = first_sentence[:117] + "..."
 
-    # Map subreddits to relevant hashtags
-    subreddit_hashtags = {
-        "pettyrevenge": "#Revenge #PettyRevenge",
-        "prorevenge": "#Revenge #ProRevenge #Justice",
-        "nuclearrevenge": "#Revenge #NuclearRevenge #Justice",
+    # Exactly 5 strategic hashtags (over-tagging causes YouTube to ignore all)
+    # 3 broad + 2 topic-specific
+    subreddit_hashtag_map = {
+        "pettyrevenge": "#PettyRevenge #Karma",
+        "prorevenge": "#ProRevenge #Justice",
+        "nuclearrevenge": "#NuclearRevenge #Justice",
         "maliciouscompliance": "#MaliciousCompliance #Revenge",
-        "confession": "#Confession #StoryTime",
+        "confession": "#Confession #TrueStory",
         "tifu": "#TIFU #FunnyStory",
         "entitledparents": "#EntitledParents #Karen",
         "trueoffmychest": "#TrueOffMyChest #Confession",
@@ -130,48 +132,48 @@ def generate_viral_metadata(title, body, subreddit):
         "relationships": "#Relationships #Drama",
         "neighborsfromhell": "#BadNeighbors #Neighbors",
         "bestofredditorupdates": "#RedditUpdates #StoryTime",
+        "weddingshaming": "#WeddingDrama #Bridezilla",
+        "bridezillas": "#Bridezilla #WeddingDrama",
+        "justnomil": "#MotherInLaw #FamilyDrama",
     }
 
-    sub_tags = subreddit_hashtags.get(subreddit.lower(), "#RedditStories")
+    sub_tags = subreddit_hashtag_map.get(subreddit.lower(), "#RedditStories #StoryTime")
 
     description = (
         f"{first_sentence}\n\n"
-        f"#Shorts {sub_tags} #RedditStories #StoryTime\n\n"
+        f"#Shorts #RedditStories {sub_tags}\n\n"
         f"Follow for daily stories! 🔔\n\n"
         f"---\n"
         f"Story from r/{subreddit}"
     )
 
     # --- TAGS ---
-    # Mix of broad + niche keywords
+    # 10 max — focused mix of broad + niche
     base_tags = ["shorts", "reddit stories", "storytime", "reddit", "true stories"]
 
-    # Add topic-specific tags based on content
     body_lower = body.lower()
     topic_tags = []
     topic_map = {
-        "revenge": ["revenge story", "karma", "justice"],
-        "boss": ["work story", "bad boss", "quit job"],
-        "wedding": ["wedding drama", "bridezilla"],
-        "neighbor": ["bad neighbor", "neighbor story"],
-        "cheating": ["cheating story", "relationship drama"],
-        "parent": ["entitled parents", "family drama"],
-        "school": ["school story", "teacher story"],
-        "roommate": ["roommate story", "living together"],
-        "divorce": ["divorce story", "relationship"],
+        "revenge": ["revenge story", "karma"],
+        "boss": ["work story", "bad boss"],
+        "wedding": ["wedding drama"],
+        "neighbor": ["bad neighbor"],
+        "cheating": ["cheating story"],
+        "parent": ["entitled parents"],
+        "school": ["school story"],
+        "roommate": ["roommate story"],
+        "divorce": ["divorce story"],
     }
 
     for keyword, tags in topic_map.items():
         if keyword in body_lower:
             topic_tags.extend(tags)
 
-    # Subreddit-based tags
     sub_name_clean = subreddit.lower().replace("_", " ")
     topic_tags.append(sub_name_clean)
 
-    all_tags = base_tags + list(set(topic_tags))  # Deduplicate
-    # YouTube allows max 500 chars of tags — keep it reasonable
-    all_tags = all_tags[:15]
+    all_tags = base_tags + list(set(topic_tags))
+    all_tags = all_tags[:10]  # Hard cap at 10
 
     return short_title, description, all_tags
 
@@ -228,10 +230,10 @@ def create_and_upload_viral_short(youtube_client=None, history=None, voice=None,
         else:
             full_spoken_text = part['script']
 
-        # Safety check on length (prevent 60s+ Shorts) — target is 110-125 words
-        if len(full_spoken_text.split()) > 160:
+        # Safety check on length (prevent 60s+ Shorts) — target is 100-115 words
+        if len(full_spoken_text.split()) > 140:
             print("  ⚠️ Script unusually long — trimming")
-            trimmed = ' '.join(full_spoken_text.split()[:130])
+            trimmed = ' '.join(full_spoken_text.split()[:120])
             
             # Find the last sentence boundary (. ! or ?)
             boundaries = [trimmed.rfind('.'), trimmed.rfind('!'), trimmed.rfind('?')]
@@ -325,14 +327,12 @@ def create_and_upload_viral_short(youtube_client=None, history=None, voice=None,
                     print(f"  Moved video to {UPLOADED_DIR}/")
 
                     # PINNED COMMENT LOGIC
-                    # If it's part 1 of a multi-part series, pin a comment linking to the profile.
-                    # If it's part 2 or a single video, pin a comment asking the "Who was right?" question.
+                    # Uses rotating comment pool for variety (prevents viewer fatigue)
+                    # Part 1 = teaser for Part 2, Final part = debate/engagement bait
                     try:
-                        from uploader import add_pinned_comment
-                        if part['suffix'] == " (Part 1)":
-                            comment_text = "Part 2 is on my profile! Subscribe so you don't miss the ending 👇"
-                        else:
-                            comment_text = "Who do you think was right? Let me know down below! 👇"
+                        from uploader import add_pinned_comment, get_pinned_comment
+                        is_part1 = (part['suffix'] == " (Part 1)")
+                        comment_text = get_pinned_comment(is_part1=is_part1)
                         
                         add_pinned_comment(youtube_client, video_id, comment_text)
                     except Exception as e:
@@ -376,8 +376,10 @@ def run_pipeline():
                         help="Path to specific background video file")
     parser.add_argument("-w", "--words-per-chunk", type=int, default=2, 
                         help="Number of words per subtitle chunk (default: 2)")
-    parser.add_argument("-c", "--cooldown", type=int, default=300, 
-                        help="Cooldown seconds between uploads (default: 300)")
+    parser.add_argument("-c", "--cooldown", type=int, default=0, 
+                        help="Override cooldown seconds between uploads (default: random 240-420)")
+    parser.add_argument("--test-caption", action="store_true",
+                        help="Generate a single test frame to verify caption styling, then exit")
 
     args, unknown = parser.parse_known_args()
 
@@ -392,6 +394,52 @@ def run_pipeline():
         import video_gen
         video_gen.WORDS_PER_CHUNK = args.words_per_chunk
         print(f"🔧 Overriding words per chunk to: {args.words_per_chunk}")
+
+    # --- Test Caption Mode ---
+    # Generates a single frame with the caption style for quick visual QA
+    if args.test_caption:
+        print("\n🧪 TEST CAPTION MODE")
+        print("Generating a test frame to verify caption styling...\n")
+        try:
+            from video_gen import (
+                TextClip, CompositeVideoClip, ColorClip,
+                FONT_NAME, ACTIVE_COLOR, STROKE_COLOR, STROKE_WIDTH,
+                GLOW_COLOR, ACTIVE_FONT_SIZE, VIDEO_WIDTH, VIDEO_HEIGHT
+            )
+            # Create a dark background
+            bg = ColorClip(size=(VIDEO_WIDTH, VIDEO_HEIGHT), color=(30, 30, 40))
+            bg = bg.set_duration(1)
+            
+            # Create test text with the caption style
+            test_text = "KARMA"
+            glow = TextClip(test_text, fontsize=ACTIVE_FONT_SIZE + 4,
+                           color=GLOW_COLOR, font=FONT_NAME,
+                           stroke_color=GLOW_COLOR, stroke_width=20,
+                           method='label', align='center')
+            txt = TextClip(test_text, fontsize=ACTIVE_FONT_SIZE,
+                          color=ACTIVE_COLOR, font=FONT_NAME,
+                          stroke_color=STROKE_COLOR, stroke_width=STROKE_WIDTH,
+                          method='label', align='center')
+            y_pos = int(VIDEO_HEIGHT * 0.55)
+            glow = glow.set_position(('center', y_pos)).set_duration(1).set_opacity(0.55)
+            txt = txt.set_position(('center', y_pos)).set_duration(1)
+            
+            # Composite and save
+            frame = CompositeVideoClip([bg, glow, txt], size=(VIDEO_WIDTH, VIDEO_HEIGHT))
+            output = os.path.join(TEMP_DIR, "test_caption.png")
+            os.makedirs(TEMP_DIR, exist_ok=True)
+            frame.save_frame(output, t=0)
+            frame.close()
+            
+            print(f"✅ Test caption saved to: {os.path.abspath(output)}")
+            print(f"   Color: {ACTIVE_COLOR}")
+            print(f"   Font: {FONT_NAME}")
+            print(f"   Size: {ACTIVE_FONT_SIZE}px | Stroke: {STROKE_WIDTH}px")
+            print(f"   Glow: {GLOW_COLOR}")
+            print("\nOpen the PNG file to verify the yellow text is readable!")
+        except Exception as e:
+            print(f"❌ Test caption failed: {e}")
+        return
 
     print("\n" + "=" * 60)
     print("🚀 VIRAL SHORTS GENERATION PIPELINE")
@@ -447,9 +495,14 @@ def run_pipeline():
             save_upload_history(history)
 
         # Cooldown between uploads (skip for last video)
+        # Randomized to look human — fixed intervals get flagged as bot behavior
         if i < args.num - 1 and result['success'] and youtube_client:
-            print(f"\n  ⏳ Cooling down {args.cooldown}s before next video...")
-            time.sleep(args.cooldown)
+            if args.cooldown > 0:
+                cooldown = args.cooldown
+            else:
+                cooldown = random.randint(UPLOAD_COOLDOWN_MIN, UPLOAD_COOLDOWN_MAX)
+            print(f"\n  ⏳ Cooling down {cooldown}s before next video (randomized)...")
+            time.sleep(cooldown)
 
     # Summary
     print("\n" + "=" * 60)

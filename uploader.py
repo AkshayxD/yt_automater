@@ -129,6 +129,9 @@ def add_pinned_comment(youtube, video_id, text):
     Adds a top-level comment to the video as the channel owner.
     (Note: YouTube Data API doesn't support 'pinning', but as the first comment
      from the creator, it stays at the top and acts as comment bait).
+    
+    Also posts a self-reply to double the comment count — this boosts
+    engagement density signals for the algorithm.
     """
     print(f"  💬 Posting comment bait to video {video_id}...")
     try:
@@ -149,8 +152,73 @@ def add_pinned_comment(youtube, video_id, text):
         
         comment_id = response['snippet']['topLevelComment']['id']
         print(f"  ✅ Comment posted successfully! (ID: {comment_id})")
+        
+        # --- Self-reply chain ---
+        # Reply to our own comment with a follow-up question.
+        # This doubles the comment count and encourages viewers to join the thread.
+        try:
+            self_replies = [
+                "I'm genuinely curious what you all think about this one 👇",
+                "This story had me SHOOK. What would you have done?",
+                "Drop your thoughts below ⬇️ I read every single comment",
+                "The audacity in this story is unreal. Who was right though?",
+                "I've been thinking about this all day. Am I crazy?",
+            ]
+            import random
+            reply_text = random.choice(self_replies)
+            
+            reply_body = {
+                'snippet': {
+                    'parentId': comment_id,
+                    'textOriginal': reply_text
+                }
+            }
+            youtube.comments().insert(
+                part='snippet',
+                body=reply_body
+            ).execute()
+            print(f"  💬 Self-reply posted (engagement boost)")
+        except Exception as e:
+            print(f"  Note: Self-reply skipped ({e})")
+        
         return comment_id
     except Exception as e:
         print(f"  ❌ Failed to post comment: {e}")
         return None
 
+
+# --- Rotating Comment Bait Pool ---
+# 10 variations to prevent viewer fatigue from seeing the same CTA
+PART1_COMMENTS = [
+    "Part 2 is on my profile! Subscribe so you don't miss the ending 👇",
+    "The ending will SHOCK you — Part 2 on my profile 👇",
+    "You NEED to see how this ends. Part 2 is up now 🔥",
+    "Wait until you hear what happened next... Part 2 on my profile!",
+    "Part 2 just dropped — the ending is wild 😱",
+]
+
+FINAL_PART_COMMENTS = [
+    "Who do you think was right? Let me know down below! 👇",
+    "Be honest — was I wrong here? Comment below ⬇️",
+    "Rate this story 1–10 in the comments 👇",
+    "Comment 'KARMA' if they got what they deserved 🔥",
+    "Would YOU have done the same thing? Tell me below",
+    "Who was the real villain in this story? 🤔",
+    "The comments on this one are going to be WILD 👇",
+    "I need to know — am I the only one who thinks this is insane?",
+]
+
+
+def get_pinned_comment(is_part1=False):
+    """
+    Returns a random engagement-bait comment from the rotating pool.
+    
+    Args:
+        is_part1: If True, returns a Part 2 teaser comment.
+                  If False, returns a debate/engagement comment.
+    """
+    import random
+    if is_part1:
+        return random.choice(PART1_COMMENTS)
+    else:
+        return random.choice(FINAL_PART_COMMENTS)

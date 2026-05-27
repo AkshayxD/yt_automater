@@ -29,11 +29,13 @@ BORING_KEYWORDS = [
 ]
 
 # Subreddits proven to have viral-worthy story content
+# Expanded list includes high-drama subs that generate inherent conflict
 SUBREDDITS = [
     "pettyrevenge", "ProRevenge", "NuclearRevenge", "MaliciousCompliance",
     "confession", "tifu", "EntitledParents", "TrueOffMyChest",
     "AmItheAsshole", "ChoosingBeggars", "IDontWorkHereLady",
-    "relationships", "neighborsfromhell", "BestofRedditorUpdates"
+    "relationships", "neighborsfromhell", "BestofRedditorUpdates",
+    "weddingshaming", "bridezillas", "JUSTNOMIL",
 ]
 
 
@@ -178,7 +180,8 @@ def get_reddit_story():
 
     for subreddit in subreddits_to_try:
         # Mix top (proven viral) with rising (fresh, untouched, first-mover)
-        sort_type = random.choice(["top", "top", "rising"])
+        # 40% rising for first-mover advantage (was ~33%)
+        sort_type = random.choice(["top", "top", "top", "rising", "rising"])
         
         if sort_type == "top":
             timeframe = random.choice(["day", "week"])
@@ -239,7 +242,16 @@ def get_reddit_story():
     if all_valid_posts:
         # Sort by viral score, pick from top 3 (some randomness to avoid repetition)
         all_valid_posts.sort(key=lambda x: x['score'], reverse=True)
-        top_candidates = all_valid_posts[:min(3, len(all_valid_posts))]
+
+        # Filter out low-scoring stories — quality > quantity
+        MIN_VIRAL_SCORE = 20
+        strong_posts = [p for p in all_valid_posts if p['score'] >= MIN_VIRAL_SCORE]
+        if not strong_posts:
+            # If nothing hits the threshold, take whatever we have
+            print(f"  ⚠️ No stories scored ≥{MIN_VIRAL_SCORE}. Using best available.")
+            strong_posts = all_valid_posts[:3]
+
+        top_candidates = strong_posts[:min(3, len(strong_posts))]
         chosen = random.choice(top_candidates)
 
         print(f"\n✅ Selected story from r/{chosen['subreddit']} "

@@ -42,11 +42,15 @@ else:
 # Yellow text + thick black stroke = #1 viral Reddit/narration Shorts style
 # Used by SpeedyMorph, WrathOfGod, top Reddit narration & true crime channels
 # The yellow pops on ANY background color (dark or bright gameplay footage)
-ACTIVE_COLOR = '#FFE000'           # Bright viral yellow — pops on any BG
-INACTIVE_COLOR = '#FFE000'
-ACTIVE_FONT_SIZE = 95              # Keep size unchanged
-STROKE_WIDTH = 10                  # Slightly thicker stroke for yellow legibility
+#
+# NOTE: Using RGB tuple instead of hex — some ImageMagick versions parse
+# hex colors incorrectly, causing white/invisible text.
+ACTIVE_COLOR = 'rgb(255, 224, 0)'  # Bright viral yellow — pops on any BG
+INACTIVE_COLOR = 'rgb(255, 224, 0)'
+ACTIVE_FONT_SIZE = 95              # Base size (±3px random per video for fingerprint variation)
+STROKE_WIDTH = 6                   # Thinner stroke — 10px was overpowering the yellow fill
 STROKE_COLOR = 'black'
+GLOW_COLOR = 'rgb(255, 200, 0)'    # Warm yellow glow behind text for extra pop
 
 # 1 word per chunk for viral TikTok/Shorts "karaoke" style
 WORDS_PER_CHUNK = 1
@@ -110,29 +114,44 @@ def group_words_into_chunks(words, words_per_chunk=WORDS_PER_CHUNK):
     return chunks
 
 
-def create_subtitle_clips(chunks, y_pos=None):
+def create_subtitle_clips(chunks, y_pos=None, font_size=None):
     """
     Creates single-line centered subtitle clips with the viral Shorts style.
 
     Args:
         chunks: List of word chunks with timing.
         y_pos: Vertical position in pixels. If None, uses 55% of frame height.
+        font_size: Override font size. If None, uses ACTIVE_FONT_SIZE.
 
     Returns a list of moviepy clips (text + background bars interleaved).
     """
     subtitle_clips = []
     if y_pos is None:
         y_pos = int(VIDEO_HEIGHT * 0.55)
+    if font_size is None:
+        font_size = ACTIVE_FONT_SIZE
 
     for chunk in chunks:
         display_text = chunk['text'].upper()
         start = chunk['start']
         end = chunk['end']
 
-        # --- Text clip ---
+        # --- Glow layer (rendered behind main text for a warm halo effect) ---
+        glow_clip = TextClip(
+            display_text,
+            fontsize=font_size + 4,
+            color=GLOW_COLOR,
+            font=FONT_NAME,
+            stroke_color=GLOW_COLOR,
+            stroke_width=20,         # Wide glow halo for bright yellow pop
+            method='label',
+            align='center'
+        )
+
+        # --- Text clip (main) ---
         txt_clip = TextClip(
             display_text,
-            fontsize=ACTIVE_FONT_SIZE,
+            fontsize=font_size,
             color=ACTIVE_COLOR,
             font=FONT_NAME,
             stroke_color=STROKE_COLOR,
@@ -144,9 +163,10 @@ def create_subtitle_clips(chunks, y_pos=None):
         # Clamp width — if text is wider than max, fall back to caption method
         if txt_clip.w > SUBTITLE_MAX_WIDTH:
             txt_clip.close()
+            glow_clip.close()
             txt_clip = TextClip(
                 display_text,
-                fontsize=ACTIVE_FONT_SIZE,
+                fontsize=font_size,
                 color=ACTIVE_COLOR,
                 font=FONT_NAME,
                 stroke_color=STROKE_COLOR,
@@ -155,8 +175,17 @@ def create_subtitle_clips(chunks, y_pos=None):
                 size=(SUBTITLE_MAX_WIDTH, None),
                 align='center'
             )
-
-        # Position is passed as parameter (set per-video in create_video for variety)
+            glow_clip = TextClip(
+                display_text,
+                fontsize=font_size + 4,
+                color=GLOW_COLOR,
+                font=FONT_NAME,
+                stroke_color=GLOW_COLOR,
+                stroke_width=20,
+                method='caption',
+                size=(SUBTITLE_MAX_WIDTH + 20, None),
+                align='center'
+            )
 
         # --- Dark background bar behind text ---
         bar_padding_x = 28
@@ -171,20 +200,30 @@ def create_subtitle_clips(chunks, y_pos=None):
                   .set_position(('center', y_pos - bar_padding_y)))
 
         # --- Viral Pop Animation ---
-        # Scale down slightly over the first 0.1 seconds (e.g., 1.15x -> 1.0x)
+        # Aggressive pop-in: 1.25x → 1.0x in 0.07s for maximum punch
+        # This matches top-performing Shorts channels (Hormozi, SpeedyMorph)
         def pop_effect(t):
-            if t < 0.1:
-                return 1.15 - (1.5 * t)
+            if t < 0.07:
+                return 1.25 - (3.57 * t)  # 1.25 → 1.0 over 0.07s
             return 1.0
+
+        # Position and time the glow layer (behind main text)
+        glow_clip = (glow_clip
+                     .set_position(('center', y_pos))
+                     .set_start(start)
+                     .set_end(end)
+                     .set_opacity(0.55)
+                     .resize(pop_effect))
 
         txt_clip = (txt_clip
                     .set_position(('center', y_pos))
                     .set_start(start)
                     .set_end(end)
-                    .resize(pop_effect)) # Apply the pop animation
+                    .resize(pop_effect))
 
-        # Bar first (behind), then text (on top)
+        # Layer order: bar (back) → glow (middle) → text (front)
         subtitle_clips.append(bg_bar)
+        subtitle_clips.append(glow_clip)
         subtitle_clips.append(txt_clip)
 
     return subtitle_clips
@@ -195,6 +234,9 @@ def trim_audio_silence(audio_clip, threshold_db=-40):
     Trims trailing silence from the audio to create an abrupt ending.
     This forces rewatches and boosts completion rate.
     Falls back gracefully if audio analysis fails.
+    
+    Tighter 0.05s buffer (was 0.15s) — the more abrupt the ending,
+    the more likely a rewatch ("wait, what did they say?").
     """
     try:
         fps = audio_clip.fps or 44100
@@ -213,11 +255,12 @@ def trim_audio_silence(audio_clip, threshold_db=-40):
 
         if len(non_silent) > 0:
             last_sound = non_silent[-1]
-            end_sample = last_sound + int(fps * 0.15)
+            # 0.05s buffer — ultra-tight cut for maximum abruptness
+            end_sample = last_sound + int(fps * 0.05)
             end_time = min(end_sample / fps, audio_clip.duration)
             time_saved = audio_clip.duration - end_time
-            if time_saved > 0.3:
-                print(f"  Trimmed {time_saved:.1f}s of trailing silence")
+            if time_saved > 0.2:
+                print(f"  ✂️ Trimmed {time_saved:.1f}s of trailing silence (abrupt ending)")
                 return audio_clip.subclip(0, end_time)
     except Exception as e:
         print(f"  Note: Skipping silence trim ({type(e).__name__})")
@@ -305,6 +348,15 @@ def create_video(audio_path, srt_path, background_path="assets/background_small.
         x1 = max(0, x_center - half_width + crop_offset)
         x2 = min(w, x_center + half_width + crop_offset)
         bg_clip = bg_clip.crop(x1=x1, y1=0, x2=x2, y2=VIDEO_HEIGHT)
+
+        # --- Subtle Zoom Drift ---
+        # Background slowly zooms 1.0x → 1.05x over the video duration.
+        # Keeps eyes engaged — static backgrounds feel dead and boring.
+        zoom_target = random.uniform(1.03, 1.07)  # Slight random variation
+        def zoom_drift(t):
+            progress = t / max(audio_duration, 0.1)
+            return 1.0 + (zoom_target - 1.0) * progress
+        bg_clip = bg_clip.resize(zoom_drift)
     else:
         print("  ⚠️ No background video found — using dark background")
         bg_clip = ColorClip(
@@ -352,9 +404,12 @@ def create_video(audio_path, srt_path, background_path="assets/background_small.
     # Attach mixed audio
     video_with_audio = bg_clip.set_audio(mixed_audio)
 
-    # --- Random caption y-position (50%-60% from top) ---
-    # Slight variation per video avoids a repetitive visual template fingerprint
-    caption_y = int(VIDEO_HEIGHT * random.uniform(0.50, 0.60))
+    # --- Random caption y-position (45%-60% from top) ---
+    # Wider range per video avoids a repetitive visual template fingerprint
+    caption_y = int(VIDEO_HEIGHT * random.uniform(0.45, 0.60))
+
+    # --- Random font size (±3px) for anti-fingerprinting ---
+    vid_font_size = ACTIVE_FONT_SIZE + random.randint(-3, 3)
 
     # --- Animated Subtitles ---
     print("  Generating animated subtitles...")
@@ -365,14 +420,34 @@ def create_video(audio_path, srt_path, background_path="assets/background_small.
         subtitle_clips = []
     else:
         chunks = group_words_into_chunks(words)
-        subtitle_clips = create_subtitle_clips(chunks, y_pos=caption_y)
+        subtitle_clips = create_subtitle_clips(chunks, y_pos=caption_y, font_size=vid_font_size)
         print(f"  Created {len(subtitle_clips)} subtitle clips "
-              f"from {len(words)} words ({WORDS_PER_CHUNK} words/chunk) at y={caption_y}px")
+              f"from {len(words)} words ({WORDS_PER_CHUNK} words/chunk) "
+              f"at y={caption_y}px, font={vid_font_size}px")
 
     # --- Composite Everything ---
     print("  Compositing layers...")
     all_clips = [video_with_audio, gradient_top, gradient_bottom] + subtitle_clips
     final_video = CompositeVideoClip(all_clips, size=(VIDEO_WIDTH, VIDEO_HEIGHT))
+
+    # --- Seamless Loop Ending ---
+    # Cross-fade the last 0.5s into the first frame → viewers unknowingly
+    # rewatch → 100%+ retention → massive algorithm boost
+    try:
+        loop_duration = 0.4
+        if final_video.duration > loop_duration * 3:
+            from moviepy.video.fx.all import crossfadein
+            # Get the first frame as a static clip
+            first_frame = final_video.to_ImageClip(t=0).set_duration(loop_duration)
+            first_frame = first_frame.set_start(final_video.duration - loop_duration)
+            first_frame = first_frame.crossfadein(loop_duration)
+            final_video = CompositeVideoClip(
+                [final_video, first_frame],
+                size=(VIDEO_WIDTH, VIDEO_HEIGHT)
+            )
+            print(f"  🔄 Seamless loop ending applied ({loop_duration}s crossfade)")
+    except Exception as e:
+        print(f"  Note: Loop ending skipped ({type(e).__name__})")
 
     # --- Render ---
     print("  Rendering final MP4 (this may take a while)...")
