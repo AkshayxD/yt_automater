@@ -91,6 +91,15 @@ def rewrite_story(title, body):
         
         result_text = response.text.strip()
         
+        # Clean markdown code blocks if Gemini returns them
+        if result_text.startswith("```json"):
+            result_text = result_text[7:]
+        elif result_text.startswith("```"):
+            result_text = result_text[3:]
+        if result_text.endswith("```"):
+            result_text = result_text[:-3]
+        result_text = result_text.strip()
+        
         try:
             data = json.loads(result_text)
             headline = data.get("headline", title).strip()
@@ -102,8 +111,9 @@ def rewrite_story(title, body):
             if not script:
                 print("  ⚠️ AI generated an empty script! Falling back to raw text.")
                 return title, body, None
-        except json.JSONDecodeError:
-            print("  ⚠️ Failed to parse JSON, falling back to raw text")
+        except json.JSONDecodeError as e:
+            print(f"  ⚠️ Failed to parse JSON: {e}, falling back to raw text")
+            print(f"  Raw response was: {result_text}")
             return title, body, None
         
         # Remove any markdown formatting

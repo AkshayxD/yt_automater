@@ -6,7 +6,11 @@ from google.auth.transport.requests import Request
 
 # The SCOPES list determines what permissions the application is requesting.
 # To upload videos, we need the youtube.upload scope.
-SCOPES = ['https://www.googleapis.com/auth/youtube.upload']
+# To post comments, we need the youtube.force-ssl scope.
+SCOPES = [
+    'https://www.googleapis.com/auth/youtube.upload',
+    'https://www.googleapis.com/auth/youtube.force-ssl'
+]
 
 def get_authenticated_service(client_secrets_file='client_secret.json'):
     """

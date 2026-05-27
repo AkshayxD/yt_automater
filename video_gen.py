@@ -45,12 +45,12 @@ else:
 #
 # NOTE: Using RGB tuple instead of hex — some ImageMagick versions parse
 # hex colors incorrectly, causing white/invisible text.
-ACTIVE_COLOR = 'rgb(255, 224, 0)'  # Bright viral yellow — pops on any BG
-INACTIVE_COLOR = 'rgb(255, 224, 0)'
+ACTIVE_COLOR = 'yellow'  # Bright viral yellow — pops on any BG
+INACTIVE_COLOR = 'yellow'
 ACTIVE_FONT_SIZE = 95              # Base size (±3px random per video for fingerprint variation)
 STROKE_WIDTH = 6                   # Thinner stroke — 10px was overpowering the yellow fill
 STROKE_COLOR = 'black'
-GLOW_COLOR = 'rgb(255, 200, 0)'    # Warm yellow glow behind text for extra pop
+GLOW_COLOR = 'yellow'    # Warm yellow glow behind text for extra pop
 
 # 1 word per chunk for viral TikTok/Shorts "karaoke" style
 WORDS_PER_CHUNK = 1
@@ -240,7 +240,15 @@ def trim_audio_silence(audio_clip, threshold_db=-40):
     """
     try:
         fps = audio_clip.fps or 44100
-        audio_array = audio_clip.to_soundarray(fps=fps)
+        
+        # Workaround for MoviePy 1.0.3 + Numpy >=1.24 to_soundarray bug
+        try:
+            audio_array = audio_clip.to_soundarray(fps=fps)
+        except TypeError:
+            chunks = list(audio_clip.iter_chunks(fps=fps))
+            if not chunks:
+                return audio_clip
+            audio_array = np.vstack(chunks)
 
         if audio_array is None or len(audio_array) == 0:
             return audio_clip
@@ -436,7 +444,6 @@ def create_video(audio_path, srt_path, background_path="assets/background_small.
     try:
         loop_duration = 0.4
         if final_video.duration > loop_duration * 3:
-            from moviepy.video.fx.all import crossfadein
             # Get the first frame as a static clip
             first_frame = final_video.to_ImageClip(t=0).set_duration(loop_duration)
             first_frame = first_frame.set_start(final_video.duration - loop_duration)
