@@ -30,7 +30,7 @@ SUBTITLE_MAX_WIDTH = 1000
 # --- Font ---
 # Montserrat ExtraBold — the #1 viral Shorts font (used by Hormozi, MrBeast, etc.)
 # Falls back to Impact if font file not found
-FONT_PATH = os.path.join("assets", "fonts", "Montserrat-ExtraBold.ttf")
+FONT_PATH = os.path.abspath(os.path.join(os.path.dirname(__file__), "assets", "fonts", "Montserrat-ExtraBold.ttf"))
 if os.path.exists(FONT_PATH):
     FONT_NAME = FONT_PATH
 else:
@@ -136,45 +136,46 @@ def create_subtitle_clips(chunks, y_pos=None, font_size=None):
         start = chunk['start']
         end = chunk['end']
 
-        # --- Glow layer (rendered behind main text for a warm halo effect) ---
+        # --- Glow layer (warm halo effect) ---
         glow_clip = TextClip(
             display_text,
             fontsize=font_size + 4,
             color=GLOW_COLOR,
             font=FONT_NAME,
             stroke_color=GLOW_COLOR,
-            stroke_width=20,         # Wide glow halo for bright yellow pop
+            stroke_width=20,         
             method='label',
             align='center'
         )
 
-        # --- Text clip (main) ---
+        # --- Stroke layer (rendered behind main text) ---
+        stroke_clip = TextClip(
+            display_text,
+            fontsize=font_size,
+            color='black',            # The core is black
+            font=FONT_NAME,
+            stroke_color='black',     # The stroke is black
+            stroke_width=STROKE_WIDTH,
+            method='label',          
+            align='center'
+        )
+
+        # --- Text layer (main fill, NO stroke) ---
         txt_clip = TextClip(
             display_text,
             fontsize=font_size,
-            color=ACTIVE_COLOR,
+            color=ACTIVE_COLOR,       # Pure yellow fill
             font=FONT_NAME,
-            stroke_color=STROKE_COLOR,
-            stroke_width=STROKE_WIDTH,
-            method='label',          # 'label' renders single-line, no wrap artifacts
+            method='label',           # No stroke applied here so it doesn't get overwritten!
             align='center'
         )
 
         # Clamp width — if text is wider than max, fall back to caption method
-        if txt_clip.w > SUBTITLE_MAX_WIDTH:
+        if stroke_clip.w > SUBTITLE_MAX_WIDTH:
+            stroke_clip.close()
             txt_clip.close()
             glow_clip.close()
-            txt_clip = TextClip(
-                display_text,
-                fontsize=font_size,
-                color=ACTIVE_COLOR,
-                font=FONT_NAME,
-                stroke_color=STROKE_COLOR,
-                stroke_width=STROKE_WIDTH,
-                method='caption',
-                size=(SUBTITLE_MAX_WIDTH, None),
-                align='center'
-            )
+            
             glow_clip = TextClip(
                 display_text,
                 fontsize=font_size + 4,
@@ -186,12 +187,32 @@ def create_subtitle_clips(chunks, y_pos=None, font_size=None):
                 size=(SUBTITLE_MAX_WIDTH + 20, None),
                 align='center'
             )
+            stroke_clip = TextClip(
+                display_text,
+                fontsize=font_size,
+                color='black',
+                font=FONT_NAME,
+                stroke_color='black',
+                stroke_width=STROKE_WIDTH,
+                method='caption',
+                size=(SUBTITLE_MAX_WIDTH, None),
+                align='center'
+            )
+            txt_clip = TextClip(
+                display_text,
+                fontsize=font_size,
+                color=ACTIVE_COLOR,
+                font=FONT_NAME,
+                method='caption',
+                size=(SUBTITLE_MAX_WIDTH, None),
+                align='center'
+            )
 
         # --- Dark background bar behind text ---
         bar_padding_x = 28
         bar_padding_y = 14
-        bar_w = min(txt_clip.w + bar_padding_x * 2, VIDEO_WIDTH)
-        bar_h = txt_clip.h + bar_padding_y * 2
+        bar_w = min(stroke_clip.w + bar_padding_x * 2, VIDEO_WIDTH)
+        bar_h = stroke_clip.h + bar_padding_y * 2
 
         bg_bar = (ColorClip(size=(bar_w, bar_h), color=(0, 0, 0))
                   .set_opacity(0.55)
@@ -200,14 +221,11 @@ def create_subtitle_clips(chunks, y_pos=None, font_size=None):
                   .set_position(('center', y_pos - bar_padding_y)))
 
         # --- Viral Pop Animation ---
-        # Aggressive pop-in: 1.25x → 1.0x in 0.07s for maximum punch
-        # This matches top-performing Shorts channels (Hormozi, SpeedyMorph)
         def pop_effect(t):
             if t < 0.07:
-                return 1.25 - (3.57 * t)  # 1.25 → 1.0 over 0.07s
+                return 1.25 - (3.57 * t)  
             return 1.0
 
-        # Position and time the glow layer (behind main text)
         glow_clip = (glow_clip
                      .set_position(('center', y_pos))
                      .set_start(start)
@@ -215,15 +233,22 @@ def create_subtitle_clips(chunks, y_pos=None, font_size=None):
                      .set_opacity(0.55)
                      .resize(pop_effect))
 
+        stroke_clip = (stroke_clip
+                       .set_position(('center', y_pos))
+                       .set_start(start)
+                       .set_end(end)
+                       .resize(pop_effect))
+
         txt_clip = (txt_clip
                     .set_position(('center', y_pos))
                     .set_start(start)
                     .set_end(end)
                     .resize(pop_effect))
 
-        # Layer order: bar (back) → glow (middle) → text (front)
+        # Layer order: bar (back) → glow → stroke → text (front)
         subtitle_clips.append(bg_bar)
         subtitle_clips.append(glow_clip)
+        subtitle_clips.append(stroke_clip)
         subtitle_clips.append(txt_clip)
 
     return subtitle_clips
