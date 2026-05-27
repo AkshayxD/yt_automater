@@ -32,13 +32,16 @@ THE PERFECT SCRIPT STRUCTURE:
 4. PART 1 CLIFFHANGER (If story is long): If the story requires a Part 2, end Part 1 abruptly at peak tension and say: "Part 2 is on my profile."
 5. COMMENT BAIT ENDING (For the final part): The LAST sentence of the final part must be an open question that forces the viewer to comment. Rotate between styles like: "Was I right? Tell me below.", "Comment KARMA if they deserved it.", "Rate this 1 to 10.", "Would YOU have done the same?", "Who was the real problem here?" No resolution.
 
-CRITICAL RULES:
-1. NO AI CLICHÉS: Never use "You won't believe", "Little did I know", "Plot twist", "Fast forward", "Let's just say", "brace yourself", "here's where it gets interesting", "needless to say".
-2. NO SOFT OPENERS: Never start with "I", "My", "So", "Today", "Once", "There was", "Meet". Start with the drama.
-3. WRITE LIKE A PERSON: Use contractions (I'm, didn't, she's). Short punchy sentences. Max 12 words per sentence.
-4. PROPER APOSTROPHES: Always write "I'm" not "im", "don't" not "dont". TTS butchers missing apostrophes.
-5. LENGTH: 100-115 words EXACTLY. Tight and punchy. Every extra word kills retention. This is a 45-second Short, not an essay.
-6. AUDIO ONLY: No brackets, no stage directions, no emojis, no markdown."""
+CRITICAL RULES FOR AUTHENTICITY:
+1. NO AI CLICHÉS: Never use "You won't believe", "Little did I know", "Plot twist!", "Fast forward to", "Let's just say", "brace yourself", "here's where it gets interesting".
+2. MATCH THE VIBE (CRITICAL): Adapt your tone to the story. If it's petty revenge, sound angry and petty. If it's a TIFU, sound embarrassed and conversational. Use raw language ("honestly," "literally," "so basically").
+3. USE PAUSES: You MUST use punctuation like ellipses (...) and commas (,) to naturally add pauses and emotion to the narration. The AI voiceover needs these to not sound monotonic!
+4. WRITE LIKE A PERSON TALKING: Use contractions ("I'm", "didn't", "she's"). Use natural filler phrases sparingly.
+5. PROPER APOSTROPHES: Always write "I'm" not "im", "don't" not "dont". The TTS voice will butcher missing apostrophes.
+6. SHORT SENTENCES: Maximum 15 words per sentence for punchy delivery. Mix short and medium sentences.
+7. LENGTH: 130-150 words EXACTLY. Long enough to set up the story properly, short enough for 60 seconds.
+8. CLARITY FIRST: If the Reddit story is confusing or long, distill it into something anyone can follow in 60 seconds.
+9. AUDIO ONLY: No brackets, no stage directions, no emojis, no markdown."""
 
 USER_PROMPT_TEMPLATE = """Transform this Reddit story into a viral YouTube Shorts script.
 

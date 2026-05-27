@@ -412,10 +412,6 @@ def run_pipeline():
             
             # Create test text with the caption style
             test_text = "KARMA"
-            glow = TextClip(test_text, fontsize=ACTIVE_FONT_SIZE + 4,
-                           color=GLOW_COLOR, font=FONT_NAME,
-                           stroke_color=GLOW_COLOR, stroke_width=20,
-                           method='label', align='center')
             stroke = TextClip(test_text, fontsize=ACTIVE_FONT_SIZE,
                              color='black', font=FONT_NAME,
                              stroke_color='black', stroke_width=STROKE_WIDTH,
@@ -425,12 +421,11 @@ def run_pipeline():
                           method='label', align='center')
             
             y_pos = int(VIDEO_HEIGHT * 0.55)
-            glow = glow.set_position(('center', y_pos)).set_duration(1).set_opacity(0.55)
             stroke = stroke.set_position(('center', y_pos)).set_duration(1)
             txt = txt.set_position(('center', y_pos)).set_duration(1)
             
-            # Composite and save (bar -> glow -> stroke -> text)
-            frame = CompositeVideoClip([bg, glow, stroke, txt], size=(VIDEO_WIDTH, VIDEO_HEIGHT))
+            # Composite and save (bar -> stroke -> text)
+            frame = CompositeVideoClip([bg, stroke, txt], size=(VIDEO_WIDTH, VIDEO_HEIGHT))
             output = os.path.join(TEMP_DIR, "test_caption.png")
             os.makedirs(TEMP_DIR, exist_ok=True)
             frame.save_frame(output, t=0)

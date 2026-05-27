@@ -48,9 +48,8 @@ else:
 ACTIVE_COLOR = 'yellow'  # Bright viral yellow — pops on any BG
 INACTIVE_COLOR = 'yellow'
 ACTIVE_FONT_SIZE = 95              # Base size (±3px random per video for fingerprint variation)
-STROKE_WIDTH = 6                   # Thinner stroke — 10px was overpowering the yellow fill
+STROKE_WIDTH = 12                  # Thick black stroke for maximum contrast (MrBeast/Reddit style)
 STROKE_COLOR = 'black'
-GLOW_COLOR = 'yellow'    # Warm yellow glow behind text for extra pop
 
 # 1 word per chunk for viral TikTok/Shorts "karaoke" style
 WORDS_PER_CHUNK = 1
@@ -136,18 +135,6 @@ def create_subtitle_clips(chunks, y_pos=None, font_size=None):
         start = chunk['start']
         end = chunk['end']
 
-        # --- Glow layer (warm halo effect) ---
-        glow_clip = TextClip(
-            display_text,
-            fontsize=font_size + 4,
-            color=GLOW_COLOR,
-            font=FONT_NAME,
-            stroke_color=GLOW_COLOR,
-            stroke_width=20,         
-            method='label',
-            align='center'
-        )
-
         # --- Stroke layer (rendered behind main text) ---
         stroke_clip = TextClip(
             display_text,
@@ -174,19 +161,7 @@ def create_subtitle_clips(chunks, y_pos=None, font_size=None):
         if stroke_clip.w > SUBTITLE_MAX_WIDTH:
             stroke_clip.close()
             txt_clip.close()
-            glow_clip.close()
             
-            glow_clip = TextClip(
-                display_text,
-                fontsize=font_size + 4,
-                color=GLOW_COLOR,
-                font=FONT_NAME,
-                stroke_color=GLOW_COLOR,
-                stroke_width=20,
-                method='caption',
-                size=(SUBTITLE_MAX_WIDTH + 20, None),
-                align='center'
-            )
             stroke_clip = TextClip(
                 display_text,
                 fontsize=font_size,
@@ -226,13 +201,6 @@ def create_subtitle_clips(chunks, y_pos=None, font_size=None):
                 return 1.25 - (3.57 * t)  
             return 1.0
 
-        glow_clip = (glow_clip
-                     .set_position(('center', y_pos))
-                     .set_start(start)
-                     .set_end(end)
-                     .set_opacity(0.55)
-                     .resize(pop_effect))
-
         stroke_clip = (stroke_clip
                        .set_position(('center', y_pos))
                        .set_start(start)
@@ -245,9 +213,8 @@ def create_subtitle_clips(chunks, y_pos=None, font_size=None):
                     .set_end(end)
                     .resize(pop_effect))
 
-        # Layer order: bar (back) → glow → stroke → text (front)
+        # Layer order: bar (back) → stroke → text (front)
         subtitle_clips.append(bg_bar)
-        subtitle_clips.append(glow_clip)
         subtitle_clips.append(stroke_clip)
         subtitle_clips.append(txt_clip)
 
