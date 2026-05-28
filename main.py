@@ -178,7 +178,7 @@ def generate_viral_metadata(title, body, subreddit):
     return short_title, description, all_tags
 
 
-def create_and_upload_viral_short(youtube_client=None, history=None, voice=None, background_path=None):
+def create_and_upload_viral_short(youtube_client=None, history=None, voice=None, background_path=None, test_story=None):
     """
     The main pipeline: fetch story -> voice -> video -> upload.
     
@@ -191,15 +191,18 @@ def create_and_upload_viral_short(youtube_client=None, history=None, voice=None,
     max_fetch_attempts = 3
     title, body, subreddit = None, None, None
 
-    for attempt in range(max_fetch_attempts):
-        title, body, subreddit = get_reddit_story()
-        if history and is_duplicate(title, history):
-            print(f"  ⚠️ Duplicate story detected: '{title[:40]}...' — retrying")
-            continue
-        break
+    if test_story:
+        title, body, subreddit = test_story
     else:
-        print("  ❌ Could not find a non-duplicate story after retries")
-        return result
+        for attempt in range(max_fetch_attempts):
+            title, body, subreddit = get_reddit_story()
+            if history and is_duplicate(title, history):
+                print(f"  ⚠️ Duplicate story detected: '{title[:40]}...' — retrying")
+                continue
+            break
+        else:
+            print("  ❌ Could not find a non-duplicate story after retries")
+            return result
 
     print(f"\n  📖 Story: {title[:60]}")
     print(f"  📍 From: r/{subreddit}")
@@ -380,6 +383,10 @@ def run_pipeline():
                         help="Override cooldown seconds between uploads (default: random 240-420)")
     parser.add_argument("--test-caption", action="store_true",
                         help="Generate a single test frame to verify caption styling, then exit")
+    parser.add_argument("--test-video", action="store_true",
+                        help="Generate a test video locally from a high-drama sample story to verify style, scripts, and voiceover.")
+    parser.add_argument("--test-story-file", type=str, default=None,
+                        help="Path to a text file containing a custom raw Reddit story (first line = title, rest = body) for test generation.")
     parser.add_argument("--schedule", type=str, choices=["morning", "afternoon", "evening"], default=None,
                         help="Wait until target time before uploading (morning=10AM, afternoon=2PM, evening=7PM)")
 
@@ -440,6 +447,66 @@ def run_pipeline():
             print("\nOpen the PNG file to verify the yellow text is readable!")
         except Exception as e:
             print(f"❌ Test caption failed: {e}")
+        return
+
+    # --- Test Video Mode ---
+    # Generates a full test video from either a local sample story or a custom file without fetching new stories or uploading.
+    if args.test_video or args.test_story_file:
+        print("\n🧪 TEST VIDEO MODE")
+        print("Generating a test video locally without fetching new stories or uploading...\n")
+        
+        test_title = "My entitled neighbor tried to claim half my backyard, so I built a 10-foot spite fence."
+        test_body = (
+            "My neighbor, Karen, decided that since there was no fence between our yards, she owned the line of oak trees on my property. "
+            "She actually hired landscapers to cut them down. I ran outside and stood in front of the trees, telling them they were trespassing. "
+            "Karen screamed at me, saying I was ruining her view. So, I went to the city hall, pulled the property line records, and proved the trees were entirely mine. "
+            "Then, I hired contractors to build a 10-foot tall solid wood spite fence right along the boundary line. Now, her view is a literal blank wall, and she is furious."
+        )
+        test_subreddit = "pettyrevenge"
+        
+        if args.test_story_file:
+            if not os.path.exists(args.test_story_file):
+                print(f"❌ Custom story file not found: {args.test_story_file}")
+                return
+            try:
+                with open(args.test_story_file, 'r', encoding='utf-8') as f:
+                    lines = f.readlines()
+                if not lines:
+                    print(f"❌ Story file is empty: {args.test_story_file}")
+                    return
+                test_title = lines[0].strip()
+                test_body = "".join(lines[1:]).strip()
+                test_subreddit = "custom_test"
+                print(f"📖 Loaded custom story from file: {args.test_story_file}")
+                print(f"   Title: {test_title[:60]}...")
+            except Exception as e:
+                print(f"❌ Failed to read custom story file: {e}")
+                return
+        
+        # Override upload settings for testing
+        args.no_upload = True
+        
+        print(f"📖 Using test story:")
+        print(f"   Title: {test_title}")
+        print(f"   Subreddit: r/{test_subreddit}")
+        print(f"   Length: {len(test_body.split())} words")
+        
+        result = create_and_upload_viral_short(
+            youtube_client=None,
+            history=None,
+            voice=args.voice,
+            background_path=args.background,
+            test_story=(test_title, test_body, test_subreddit)
+        )
+        
+        if result['success'] and result['file_path']:
+            print("\n" + "=" * 60)
+            print("🎉 TEST VIDEO GENERATION SUCCESSFUL!")
+            print(f"   Video saved at: {os.path.abspath(result['file_path'])}")
+            print("   You can now open the video to review voiceover style, script, and caption synchronization.")
+            print("=" * 60 + "\n")
+        else:
+            print("\n❌ TEST VIDEO GENERATION FAILED. See error output above.")
         return
 
     print("\n" + "=" * 60)

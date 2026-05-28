@@ -17,7 +17,7 @@ VOICE_POOL = [
     ("en-GB-RyanNeural", "Natural male storyteller"),
     ("en-US-AriaNeural", "Engaging female narrator"),
     ("en-US-GuyNeural", "Conversational male voice"),
-    ("en-US-DavisNeural", "Deep authoritative male"),
+    ("en-US-ChristopherNeural", "Deep authoritative male"),
     ("en-US-JennyNeural", "Warm friendly female"),
 ]
 

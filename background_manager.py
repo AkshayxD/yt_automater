@@ -22,7 +22,7 @@ if sys.stdout.encoding != 'utf-8':
     sys.stderr.reconfigure(encoding='utf-8', errors='replace')
 
 ASSETS_DIR = "assets"
-TRACKER_FILE = os.path.join(ASSETS_DIR, "used_segments.json")
+TRACKER_FILE = "used_segments.json"
 
 # Minimum gap between used segments (seconds) — avoids near-identical cuts
 MIN_GAP = 5.0
@@ -41,7 +41,9 @@ def load_tracker():
 
 def save_tracker(tracker):
     """Persists the used-segments tracker to disk."""
-    os.makedirs(ASSETS_DIR, exist_ok=True)
+    dir_name = os.path.dirname(TRACKER_FILE)
+    if dir_name:
+        os.makedirs(dir_name, exist_ok=True)
     with open(TRACKER_FILE, 'w', encoding='utf-8') as f:
         json.dump(tracker, f, indent=2)
 
@@ -153,13 +155,16 @@ def pick_background_segment(needed_duration):
         print("  ⚠️  No background videos in assets/ — using dark background")
         return None, 0.0
 
-    # Try to find a video + segment that hasn't been used recently
-    # Shuffle for randomness, but prefer videos with the most unused time
+    # Exclude background_small.mp4 from candidate options
+    all_bgs = [bg for bg in all_bgs if "background_small.mp4" not in os.path.basename(bg)]
+    if not all_bgs:
+        # Fallback if only background_small is present
+        all_bgs = get_all_backgrounds()
+
+    # Shuffle list for true randomized selection
     random.shuffle(all_bgs)
 
-    best_video = None
-    best_start = None
-    best_free_time = -1
+    candidates = []
 
     for video_path in all_bgs:
         try:
@@ -177,17 +182,21 @@ def pick_background_segment(needed_duration):
         total_used = sum(max(0, e - s) for s, e in used_ranges)
         free_time = max(0, duration - total_used)
 
-        if free_time >= needed_duration or duration >= needed_duration:
-            # Find the best start point for this video
-            start = find_free_segment(duration, needed_duration, used_ranges)
+        # A video is a valid candidate if it has enough unused duration, 
+        # or if the video itself is shorter than needed_duration (in which case it will loop)
+        if free_time >= needed_duration or duration < needed_duration:
+            candidates.append((video_path, duration, used_ranges))
 
-            if free_time > best_free_time:
-                best_free_time = free_time
-                best_video = video_path
-                best_start = start
-
-    if best_video is None:
-        # Fallback: pick any video, reset its history
+    if candidates:
+        # Randomly pick from all valid candidate videos for visual variety!
+        best_video, duration, used_ranges = random.choice(candidates)
+        if duration >= needed_duration:
+            best_start = find_free_segment(duration, needed_duration, used_ranges)
+        else:
+            # Video will loop, start from the beginning
+            best_start = 0.0
+    else:
+        # Fallback: pick any video from all_bgs at random and reset its history
         best_video = random.choice(all_bgs)
         best_start = 0.0
         key = os.path.basename(best_video)
