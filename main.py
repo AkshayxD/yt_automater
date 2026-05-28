@@ -5,7 +5,7 @@ import json
 import shutil
 import time
 import random
-from datetime import datetime
+from datetime import datetime, timedelta
 
 # Fix Windows console encoding for emoji in log output
 if sys.stdout.encoding != 'utf-8':
@@ -380,6 +380,8 @@ def run_pipeline():
                         help="Override cooldown seconds between uploads (default: random 240-420)")
     parser.add_argument("--test-caption", action="store_true",
                         help="Generate a single test frame to verify caption styling, then exit")
+    parser.add_argument("--schedule", type=str, choices=["morning", "afternoon", "evening"], default=None,
+                        help="Wait until target time before uploading (morning=10AM, afternoon=2PM, evening=7PM)")
 
     args, unknown = parser.parse_known_args()
 
@@ -404,7 +406,7 @@ def run_pipeline():
             from video_gen import (
                 TextClip, CompositeVideoClip, ColorClip,
                 FONT_NAME, ACTIVE_COLOR, STROKE_COLOR, STROKE_WIDTH,
-                GLOW_COLOR, ACTIVE_FONT_SIZE, VIDEO_WIDTH, VIDEO_HEIGHT
+                ACTIVE_FONT_SIZE, VIDEO_WIDTH, VIDEO_HEIGHT
             )
             # Create a dark background
             bg = ColorClip(size=(VIDEO_WIDTH, VIDEO_HEIGHT), color=(30, 30, 40))
@@ -435,7 +437,6 @@ def run_pipeline():
             print(f"   Color: {ACTIVE_COLOR}")
             print(f"   Font: {FONT_NAME}")
             print(f"   Size: {ACTIVE_FONT_SIZE}px | Stroke: {STROKE_WIDTH}px")
-            print(f"   Glow: {GLOW_COLOR}")
             print("\nOpen the PNG file to verify the yellow text is readable!")
         except Exception as e:
             print(f"❌ Test caption failed: {e}")
@@ -449,8 +450,27 @@ def run_pipeline():
         print(f"   Forced Voice: {args.voice}")
     if args.background:
         print(f"   Forced Background: {args.background}")
+    if args.schedule:
+        print(f"   Schedule: {args.schedule}")
     print(f"   Time: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
     print("=" * 60)
+
+    # --- Scheduling Logic ---
+    if args.schedule:
+        target_hour = {"morning": 10, "afternoon": 14, "evening": 19}.get(args.schedule)
+        if target_hour is not None:
+            now = datetime.now()
+            target_time = now.replace(hour=target_hour, minute=0, second=0, microsecond=0)
+            
+            # If target time has already passed today, schedule for tomorrow
+            if now > target_time:
+                target_time += timedelta(days=1)
+                
+            wait_seconds = (target_time - now).total_seconds()
+            print(f"\n⏰ Scheduled for {args.schedule} ({target_time.strftime('%I:%M %p')}).")
+            print(f"💤 Sleeping for {int(wait_seconds / 60)} minutes...")
+            time.sleep(wait_seconds)
+            print("🚀 Waking up and starting generation!")
 
     # Load upload history for deduplication
     history = load_upload_history()
@@ -493,6 +513,10 @@ def run_pipeline():
                 "file": result.get('file_path')
             })
             save_upload_history(history)
+            
+            if result.get('video_id'):
+                print(f"\n  💡 PRO TIP: Go to YouTube Studio and link a 'Related Video' to {result.get('video_id')}!")
+                print(f"     This is the best way to convert Shorts viewers into long-form subscribers.")
 
         # Cooldown between uploads (skip for last video)
         # Randomized to look human — fixed intervals get flagged as bot behavior

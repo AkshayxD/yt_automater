@@ -12,6 +12,8 @@ Fallback: Returns original text if API is unavailable
 import os
 import sys
 import re
+import json
+import random
 
 # Fix Windows console encoding
 if sys.stdout.encoding != 'utf-8':
@@ -140,6 +142,23 @@ def rewrite_story(title, body):
             else:
                 script = trimmed
             print(f"  ⚠️ Script was {word_count} words — trimmed to {len(script.split())}")        
+        # Phase 3: Inject "scroll-stop" prefix phrases
+        # These 2-3 word hooks buy an extra 1-2 seconds of attention before the story even starts
+        scroll_stoppers = [
+            "Wait for this...",
+            "This is insane...",
+            "You won't believe this...",
+            "Watch till the end...",
+            "This actually happened...",
+            "Listen to this..."
+        ]
+        
+        # Only inject if the AI didn't already use one of these cliches
+        if not any(script.lower().startswith(x.lower().replace('...', '')) for x in scroll_stoppers):
+            stopper = random.choice(scroll_stoppers)
+            script = f"{stopper} {script}"
+            print(f"  💉 Injected scroll-stop phrase: '{stopper}'")
+        
         print(f"  ✅ AI script generated! Headline: \"{headline}\"")
         print(f"     Script 1: {len(script.split())} words")
         if script_part2:
