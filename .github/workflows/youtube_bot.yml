@@ -70,6 +70,11 @@ jobs:
         else
           echo "Montserrat font already cached."
         fi
+        
+        # Install the font globally in Ubuntu system fonts directory for ImageMagick to access it by name
+        sudo mkdir -p /usr/share/fonts/truetype/montserrat
+        sudo cp assets/fonts/Montserrat-ExtraBold.ttf /usr/share/fonts/truetype/montserrat/
+        sudo fc-cache -f -v
 
     - name: Download background music (if not cached)
       run: |

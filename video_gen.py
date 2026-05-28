@@ -31,7 +31,9 @@ SUBTITLE_MAX_WIDTH = 1000
 # Montserrat ExtraBold — the #1 viral Shorts font (used by Hormozi, MrBeast, etc.)
 # Falls back to Impact if font file not found
 FONT_PATH = os.path.abspath(os.path.join(os.path.dirname(__file__), "assets", "fonts", "Montserrat-ExtraBold.ttf"))
-if os.path.exists(FONT_PATH):
+if os.environ.get("GITHUB_ACTIONS") == "true":
+    FONT_NAME = "Montserrat-ExtraBold"
+elif os.path.exists(FONT_PATH):
     FONT_NAME = FONT_PATH
 else:
     # Fallback for systems where the font isn't downloaded yet
