@@ -129,7 +129,57 @@ During recent pipeline testing, several critical bugs were patched to maintain v
 
 ---
 
-## ⚠️ 6. Deployment & Runtime Guidelines
+## 🏛️ 6. Inspirational Content Pipeline — "Dark Stoic" Shorts
+
+### Content Strategy (2+1 Daily Schedule)
+The channel uploads **3 videos per day**:
+- **Morning (9:30 AM IST):** Shocking Story Short (Reddit → AI Rewrite → TTS)
+- **Afternoon (12:30 PM IST):** Shocking Story Short
+- **Evening (7:00 PM IST):** Dark Stoic Motivational Short (AI-generated Stoic philosophy)
+
+### Inspirational Pipeline Architecture
+Unlike the story pipeline (which scrapes Reddit), the inspiration pipeline is **100% AI-generated**:
+1. `inspiration_writer.py` selects a theme from a bank of 30 rotating Stoic principles
+2. Gemini 2.5 Flash generates a script with Hook → Lesson → Action structure (80-100 words)
+3. `audio_gen.py` uses the **Inspiration Voice Pool** (deep male voices at `+5%` rate)
+4. `video_gen.py` renders with the **Inspiration Style** (white text, calmer zoom)
+5. `main.py` routes to `create_inspirational_short()` when `--content-type inspiration`
+
+### Visual Style Differences (Story vs. Inspiration)
+
+| Property | Story | Inspiration |
+|---|---|---|
+| **Text Color** | Yellow (`#FFE000`) | White (`#FFFFFF`) |
+| **Stroke Width** | 12px | 8px |
+| **Font Size** | 95px | 80px |
+| **Text Position** | Random 45-60% | Centered 50% |
+| **Pop Animation** | 1.25x → 1.0x | 1.15x → 1.0x |
+| **Zoom Drift** | 1.03-1.07x | 1.01-1.04x |
+| **Music Volume** | 12% | 15% |
+| **Music Source** | `assets/music/` | `assets/inspiration_music/` |
+| **Background Source** | `assets/` | `assets/inspiration_bg/` |
+| **YouTube Category** | 24 (Entertainment) | 22 (People & Blogs) |
+| **Voices** | Full pool (5 voices) | Deep males only (3 voices) |
+
+### Theme Rotation
+- 30 Stoic themes rotate automatically (Silence is Power, Amor Fati, Memento Mori, etc.)
+- Upload history tracks `stoic_theme` per video to avoid repeating themes within a 30-video window
+- Philosophers referenced: Marcus Aurelius, Seneca, Epictetus
+
+### Assets
+- **Backgrounds** (`assets/inspiration_bg/`): Dark cinematic — stormy clouds, fog forests, fire embers, rain windows, mountain peaks
+- **Music** (`assets/inspiration_music/`): Dark ambient, cinematic tension, emotional piano
+- All CC0 from Pixabay (free for commercial use)
+
+### CI/CD Routing
+The GitHub Actions workflow auto-detects content type from the cron schedule:
+- **UTC hour < 13** → `--content-type story`
+- **UTC hour ≥ 13** → `--content-type inspiration`
+- **Manual trigger** → User selects content type from dropdown
+
+---
+
+## ⚠️ 7. Deployment & Runtime Guidelines
 
 ### Google Cloud OAuth Token Expiry (The 7-Day Crash)
 *   **The Danger:** If your GCP project's publishing status is set to **"Testing"**, all OAuth2 refresh tokens expire after exactly 7 days. Your GitHub Actions pipeline will fail to authenticate after 1 week.

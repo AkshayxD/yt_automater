@@ -2,14 +2,23 @@ name: YouTube Shorts Automater
 
 on:
   schedule:
-    # Peak Indian engagement times (3x daily):
-    # 9:30 AM IST  = 4:00 AM UTC  (morning commute)
-    # 12:30 PM IST = 7:00 AM UTC  (lunch break)
-    # 7:00 PM IST  = 1:30 PM UTC  (evening scroll)
+    # Peak Indian engagement times (2 story + 1 inspiration daily):
+    # 9:30 AM IST  = 4:00 AM UTC  → Story #1 (morning commute)
+    # 12:30 PM IST = 7:00 AM UTC  → Story #2 (lunch break)
+    # 7:00 PM IST  = 1:30 PM UTC  → Inspiration #1 (evening scroll)
     - cron: '0 4 * * *'
     - cron: '0 7 * * *'
     - cron: '30 13 * * *'
   workflow_dispatch: # Allows manual triggering from the GitHub Actions tab
+    inputs:
+      content_type:
+        description: 'Content type to generate'
+        required: false
+        default: 'story'
+        type: choice
+        options:
+          - story
+          - inspiration
 
 jobs:
   generate_and_upload:
@@ -58,7 +67,7 @@ jobs:
       id: cache-bg
       with:
         path: assets
-        key: bg-assets-v2
+        key: bg-assets-v3
 
     - name: Download Montserrat font (if not cached)
       run: |
@@ -84,6 +93,30 @@ jobs:
       run: |
         python download_backgrounds.py
 
+    - name: Download inspiration assets (if not cached)
+      run: |
+        python download_inspiration_assets.py
+
+    - name: Determine content type from schedule
+      id: content-type
+      run: |
+        # If manually triggered with input, use that
+        if [ "${{ github.event.inputs.content_type }}" != "" ]; then
+          echo "type=${{ github.event.inputs.content_type }}" >> $GITHUB_OUTPUT
+          echo "Using manual content type: ${{ github.event.inputs.content_type }}"
+        else
+          # Auto-detect from cron schedule:
+          # 4:00 UTC and 7:00 UTC = story, 13:30 UTC = inspiration
+          HOUR=$(date -u +%H)
+          if [ "$HOUR" -ge 13 ]; then
+            echo "type=inspiration" >> $GITHUB_OUTPUT
+            echo "Evening slot detected → Inspiration content"
+          else
+            echo "type=story" >> $GITHUB_OUTPUT
+            echo "Morning/afternoon slot detected → Story content"
+          fi
+        fi
+
     - name: Run Bot Pipeline
       env:
         # Pulls the secret base64 token you set in GitHub Repo Settings
@@ -93,4 +126,5 @@ jobs:
         # How many videos to generate per run (default: 1)
         NUM_VIDEOS: "1"
       run: |
-        python main.py
+        python main.py --content-type ${{ steps.content-type.outputs.type }}
+

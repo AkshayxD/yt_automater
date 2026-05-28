@@ -17,6 +17,7 @@ from video_gen import create_video
 from youtube_api import get_authenticated_service
 from uploader import upload_video
 from script_writer import rewrite_story
+from inspiration_writer import generate_inspiration_script
 from background_manager import pick_background_segment, record_used_segment
 
 # --- Directories ---
@@ -175,6 +176,61 @@ def generate_viral_metadata(title, body, subreddit):
     all_tags = base_tags + list(set(topic_tags))
     all_tags = all_tags[:10]  # Hard cap at 10
 
+    return short_title, description, all_tags
+
+
+def generate_inspiration_metadata(headline, script_text, philosopher):
+    """
+    Generates SEO-optimized metadata for Dark Stoic / Motivational shorts.
+    
+    Strategy:
+    - Title: The AI headline as-is (already punchy and ALL CAPS)
+    - Description: Quote + philosopher attribution + motivational hashtags
+    - Tags: Mix of broad motivational + Stoic-specific keywords
+    
+    Returns: (short_title, description, tags)
+    """
+    # --- TITLE ---
+    short_title = headline.strip().strip('"').strip("'").strip()
+    if len(short_title) > 50:
+        short_title = short_title[:47]
+        last_space = short_title.rfind(' ')
+        if last_space > 25:
+            short_title = short_title[:last_space]
+        short_title += "..."
+    
+    # --- DESCRIPTION ---
+    # First meaningful sentence from the script
+    first_sentence = script_text.split('.')[0].strip() if script_text else ""
+    if len(first_sentence) > 120:
+        first_sentence = first_sentence[:117] + "..."
+    
+    # Stoic-specific hashtags (5 max — YouTube ignores excess)
+    description = (
+        f"{first_sentence}\n\n"
+        f"#Shorts #Stoicism #DarkMotivation #MarcusAurelius #Mindset\n\n"
+        f"Wisdom from {philosopher} \U0001F3DB\uFE0F\n"
+        f"Follow for your daily Stoic lesson \U0001F514\n\n"
+        f"---\n"
+        f"#StoicWisdom #Philosophy #Motivation"
+    )
+    
+    # --- TAGS ---
+    base_tags = ["shorts", "stoicism", "motivation", "dark motivation", "mindset"]
+    topic_tags = [
+        "marcus aurelius", "seneca", "stoic wisdom",
+        "self improvement", "philosophy", "mental strength"
+    ]
+    
+    # Add philosopher-specific tag
+    if philosopher:
+        philosopher_tag = philosopher.lower()
+        if philosopher_tag not in [t.lower() for t in topic_tags]:
+            topic_tags.append(philosopher_tag)
+    
+    all_tags = base_tags + topic_tags
+    all_tags = all_tags[:10]  # Hard cap at 10
+    
     return short_title, description, all_tags
 
 
@@ -358,6 +414,145 @@ def create_and_upload_viral_short(youtube_client=None, history=None, voice=None,
     return result
 
 
+def create_inspirational_short(youtube_client=None, history=None, voice=None):
+    """
+    Pipeline for Dark Stoic / Motivational shorts.
+    
+    Differences from create_and_upload_viral_short:
+    - Uses inspiration_writer.py (AI-generated Stoic scripts, no Reddit scraping)
+    - Picks backgrounds from assets/inspiration_bg/
+    - Picks music from assets/inspiration_music/
+    - Uses deeper, calmer voices at slower TTS rate
+    - White text, smaller font, calmer zoom (content_type='inspiration')
+    - Uploads under category 22 (People & Blogs) instead of 24 (Entertainment)
+    
+    Returns:
+        dict with 'success', 'title', 'video_id', 'file_path' keys
+    """
+    result = {'success': False, 'title': None, 'video_id': None, 'file_path': None}
+    
+    # 1. Get recently used themes from history to avoid repetition
+    used_themes = []
+    if history:
+        for vid in history.get('videos', [])[-30:]:
+            theme = vid.get('stoic_theme')
+            if theme:
+                used_themes.append(theme)
+    
+    # 2. Generate inspiration script via Gemini AI
+    print("\n  \U0001F3DB\uFE0F Generating Dark Stoic script...")
+    headline, script_text, philosopher, theme_name = generate_inspiration_script(used_themes)
+    
+    print(f"\n  \U0001F4F0 Headline: {headline}")
+    print(f"  \U0001F3DB\uFE0F Philosopher: {philosopher}")
+    print(f"  \U0001F4CF Words: {len(script_text.split())}")
+    
+    # 3. Generate Audio (deeper voice, slower rate)
+    print("  \U0001F3A4 Generating voiceover...")
+    audio_file = os.path.join(TEMP_DIR, "audio.mp3")
+    subs_file = os.path.join(TEMP_DIR, "subs.srt")
+    
+    mp3_path, srt_path = generate_audio_and_subs(
+        script_text, audio_file, subs_file, 
+        voice=voice, content_type="inspiration"
+    )
+    
+    if not mp3_path or not srt_path:
+        print("  \u274C Failed to generate audio. Aborting.")
+        return result
+    
+    # 4. Pick background from inspiration-specific assets
+    import glob
+    insp_bg_dir = os.path.join(ASSETS_DIR, "inspiration_bg")
+    insp_bg_files = glob.glob(os.path.join(insp_bg_dir, '*.mp4'))
+    
+    if insp_bg_files:
+        bg_video = random.choice(insp_bg_files)
+        print(f"  \U0001F3AC Using inspiration background: {os.path.basename(bg_video)}")
+    else:
+        # Fallback to regular backgrounds
+        bg_video, bg_start = pick_background_segment(needed_duration=50.0)
+        if bg_video is None:
+            bg_video = os.path.join(ASSETS_DIR, "background_small.mp4")
+        print(f"  \u26A0\uFE0F No inspiration backgrounds found, using: {os.path.basename(bg_video)}")
+    
+    # 5. Assemble Video (inspiration style: white text, calmer zoom)
+    safe_title = "".join([c for c in headline if c.isalpha() or c.isdigit() or c == ' ']).rstrip()
+    safe_title_underscored = safe_title.replace(" ", "_")[:50]
+    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+    final_video_path = os.path.join(VIDEOS_DIR, f"INSP_{safe_title_underscored}_{timestamp}.mp4")
+    
+    print("  \U0001F3A5 Assembling inspiration video...")
+    try:
+        rendered_video = create_video(
+            mp3_path, srt_path,
+            background_path=bg_video,
+            output_path=final_video_path,
+            bg_start_time=None,
+            content_type="inspiration"
+        )
+    except Exception as e:
+        print(f"  \u274C Error during video generation: {e}")
+        return result
+    
+    # 6. Generate metadata
+    short_title, description, tags = generate_inspiration_metadata(headline, script_text, philosopher)
+    print(f"  \U0001F4CB Upload title: {short_title}")
+    
+    # 7. Upload to YouTube
+    if youtube_client:
+        print("  \U0001F4E4 Uploading to YouTube...")
+        try:
+            video_id = upload_video(
+                youtube=youtube_client,
+                file_path=rendered_video,
+                title=short_title,
+                description=description,
+                category_id="22",  # People & Blogs (better for motivational content)
+                keywords=tags,
+                privacy_status="public"
+            )
+            
+            if video_id:
+                result['success'] = True
+                result['title'] = headline
+                result['video_id'] = video_id
+                result['file_path'] = rendered_video
+                result['stoic_theme'] = theme_name
+                
+                # Move to uploaded folder
+                dest_path = os.path.join(UPLOADED_DIR, os.path.basename(rendered_video))
+                shutil.move(rendered_video, dest_path)
+                print(f"  Moved video to {UPLOADED_DIR}/")
+                
+                # Pin a Stoic-themed comment for engagement
+                try:
+                    from uploader import add_pinned_comment
+                    stoic_comments = [
+                        f"\U0001F3DB\uFE0F Which {philosopher} lesson changed YOUR life? Drop it below.",
+                        "Type STRENGTH if you needed to hear this today. \U0001F4AA",
+                        "Save this for when life gets hard. You'll need it. \U0001F516",
+                        "The person who needs this most won't see it unless you share it. \U0001F517",
+                        f"\U0001F3DB\uFE0F {philosopher} understood something most people never will. What's YOUR biggest lesson?",
+                    ]
+                    comment_text = random.choice(stoic_comments)
+                    add_pinned_comment(youtube_client, video_id, comment_text)
+                except Exception as e:
+                    print(f"  \u26A0\uFE0F Could not pin comment: {e}")
+        except Exception as e:
+            print(f"  \u274C Failed to upload video: {e}")
+            print(f"  Your video is saved at {rendered_video}")
+    else:
+        print(f"  \u23ED\uFE0F Skipping upload (no YouTube client)")
+        print(f"  Video saved at: {rendered_video}")
+        result['success'] = True
+        result['title'] = headline
+        result['file_path'] = rendered_video
+        result['stoic_theme'] = theme_name
+    
+    return result
+
+
 def run_pipeline():
     """
     Main entry point: generates and uploads multiple viral shorts.
@@ -389,6 +584,8 @@ def run_pipeline():
                         help="Path to a text file containing a custom raw Reddit story (first line = title, rest = body) for test generation.")
     parser.add_argument("--schedule", type=str, choices=["morning", "afternoon", "evening"], default=None,
                         help="Wait until target time before uploading (morning=10AM, afternoon=2PM, evening=7PM)")
+    parser.add_argument("--content-type", type=str, choices=["story", "inspiration"], default="story",
+                        help="Content type: 'story' (Reddit drama) or 'inspiration' (Dark Stoic motivational)")
 
     args, unknown = parser.parse_known_args()
 
@@ -455,6 +652,28 @@ def run_pipeline():
         print("\n🧪 TEST VIDEO MODE")
         print("Generating a test video locally without fetching new stories or uploading...\n")
         
+        # Check if we're testing inspiration content
+        if args.content_type == "inspiration":
+            print("🏛️ Testing INSPIRATION (Dark Stoic) content type\n")
+            
+            result = create_inspirational_short(
+                youtube_client=None,
+                history=None,
+                voice=args.voice
+            )
+            
+            if result['success'] and result.get('file_path'):
+                print("\n" + "=" * 60)
+                print("🎉 TEST INSPIRATION VIDEO SUCCESSFUL!")
+                print(f"   Video saved at: {os.path.abspath(result['file_path'])}")
+                print(f"   Theme: {result.get('stoic_theme', 'N/A')}")
+                print("   Review: white text, dark background, calmer zoom, deeper voice")
+                print("=" * 60 + "\n")
+            else:
+                print("\n❌ TEST INSPIRATION VIDEO FAILED. See error output above.")
+            return
+        
+        # Default: Story test mode
         test_title = "My entitled neighbor tried to claim half my backyard, so I built a 10-foot spite fence."
         test_body = (
             "My neighbor, Karen, decided that since there was no fence between our yards, she owned the line of oak trees on my property. "
@@ -520,6 +739,8 @@ def run_pipeline():
     if args.schedule:
         print(f"   Schedule: {args.schedule}")
     print(f"   Time: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
+    content_type = args.content_type
+    print(f"   Content Type: {content_type}")
     print("=" * 60)
 
     # --- Scheduling Logic ---
@@ -558,27 +779,39 @@ def run_pipeline():
     # Generate and upload videos
     successful = 0
     for i in range(args.num):
-        print(f"\n{'─' * 60}")
-        print(f"📹 VIDEO {i + 1} of {args.num}")
-        print(f"{'─' * 60}")
+        print(f"\n{'\u2500' * 60}")
+        print(f"\U0001F4F9 VIDEO {i + 1} of {args.num} ({content_type.upper()})")
+        print(f"{'\u2500' * 60}")
 
-        result = create_and_upload_viral_short(
-            youtube_client=youtube_client, 
-            history=history,
-            voice=args.voice,
-            background_path=args.background
-        )
+        if content_type == "inspiration":
+            result = create_inspirational_short(
+                youtube_client=youtube_client,
+                history=history,
+                voice=args.voice
+            )
+        else:
+            result = create_and_upload_viral_short(
+                youtube_client=youtube_client, 
+                history=history,
+                voice=args.voice,
+                background_path=args.background
+            )
 
         if result['success'] and result['title']:
             successful += 1
             # Record in history
             history["uploaded_titles"].append(result['title'])
-            history["videos"].append({
+            video_record = {
                 "title": result['title'],
                 "video_id": result.get('video_id'),
                 "uploaded_at": datetime.now().isoformat(),
-                "file": result.get('file_path')
-            })
+                "file": result.get('file_path'),
+                "content_type": content_type,
+            }
+            # Track Stoic theme for inspiration videos (prevents repetition)
+            if result.get('stoic_theme'):
+                video_record["stoic_theme"] = result['stoic_theme']
+            history["videos"].append(video_record)
             save_upload_history(history)
             
             if result.get('video_id'):

@@ -24,5 +24,12 @@ assets/*
 !assets/fonts/
 !assets/fonts/*
 
+# Test artifacts
+test_caption.png
+test_no_stroke.png
+test_with_stroke.png
+test.html
+used_segments.json
+
 # (We upload the small compressed background video because yt-dlp is blocked by YouTube's bot detection on GitHub Actions)
 

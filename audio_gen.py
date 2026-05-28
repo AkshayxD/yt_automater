@@ -21,8 +21,19 @@ VOICE_POOL = [
     ("en-US-JennyNeural", "Warm friendly female"),
 ]
 
+# Inspiration voice pool — deeper, calmer, more authoritative voices
+# for Dark Stoic / motivational content. No female voices (matches the dark monk aesthetic).
+INSPIRATION_VOICE_POOL = [
+    ("en-US-GuyNeural", "Deep calm male — stoic authority"),
+    ("en-US-ChristopherNeural", "Warm baritone — philosophical depth"),
+    ("en-GB-RyanNeural", "British authority — timeless wisdom"),
+]
+
 # Slightly slower than the old +15% — gives the narration more weight and drama, preventing monotonic delivery
 TTS_RATE = "+10%"
+
+# Slower rate for inspiration — deliberate, contemplative pacing
+INSPIRATION_TTS_RATE = "+5%"
 
 
 async def _generate(text, output_mp3, output_srt, voice, rate):
@@ -52,7 +63,7 @@ async def _generate(text, output_mp3, output_srt, voice, rate):
     return srt_content
 
 
-def generate_audio_and_subs(text, output_mp3="temp/audio.mp3", output_srt="temp/subs.srt", voice=None):
+def generate_audio_and_subs(text, output_mp3="temp/audio.mp3", output_srt="temp/subs.srt", voice=None, content_type="story"):
     """
     Uses edge-tts Python API to generate a realistic voiceover with
     exact word-level subtitle timing (via WordBoundary events).
@@ -63,7 +74,8 @@ def generate_audio_and_subs(text, output_mp3="temp/audio.mp3", output_srt="temp/
         text: The script to narrate.
         output_mp3: Path to save the audio file.
         output_srt: Path to save the SRT subtitle file (word-level).
-        voice: Optional specific voice name. If None, picks randomly from VOICE_POOL.
+        voice: Optional specific voice name. If None, picks randomly from pool.
+        content_type: 'story' or 'inspiration' — selects voice pool and TTS rate.
 
     Returns:
         Tuple of (mp3_path, srt_path) or (None, None) on failure.
@@ -73,9 +85,17 @@ def generate_audio_and_subs(text, output_mp3="temp/audio.mp3", output_srt="temp/
     # Ensure directory exists
     os.makedirs(os.path.dirname(output_mp3), exist_ok=True)
 
+    # Select voice pool and TTS rate based on content type
+    if content_type == "inspiration":
+        pool = INSPIRATION_VOICE_POOL
+        rate = INSPIRATION_TTS_RATE
+    else:
+        pool = VOICE_POOL
+        rate = TTS_RATE
+
     # Pick a voice
     if voice is None:
-        chosen_voice, voice_desc = random.choice(VOICE_POOL)
+        chosen_voice, voice_desc = random.choice(pool)
         print(f"  Voice: {chosen_voice} ({voice_desc})")
     else:
         chosen_voice = voice
@@ -83,7 +103,7 @@ def generate_audio_and_subs(text, output_mp3="temp/audio.mp3", output_srt="temp/
 
     try:
         srt_content = asyncio.run(
-            _generate(text, output_mp3, output_srt, chosen_voice, TTS_RATE)
+            _generate(text, output_mp3, output_srt, chosen_voice, rate)
         )
 
         # Count words for logging

@@ -56,6 +56,18 @@ STROKE_COLOR = 'black'
 # 1 word per chunk for viral TikTok/Shorts "karaoke" style
 WORDS_PER_CHUNK = 1
 
+# --- Inspiration Style Overrides ---
+# White text with thinner stroke, smaller font — clean, premium, philosophical aesthetic
+INSP_ACTIVE_COLOR = 'white'
+INSP_FONT_SIZE = 80
+INSP_STROKE_WIDTH = 8
+INSP_POP_SCALE = 1.15       # Subtler pop animation (vs 1.25 for story)
+INSP_ZOOM_MIN = 1.01        # Slower zoom drift (calmer feel)
+INSP_ZOOM_MAX = 1.04
+INSP_MUSIC_VOLUME = 0.15    # Slightly louder atmospheric music
+INSP_BG_DIR = os.path.join('assets', 'inspiration_bg')
+INSP_MUSIC_DIR = os.path.join('assets', 'inspiration_music')
+
 
 def parse_srt(srt_file):
     """
@@ -115,7 +127,7 @@ def group_words_into_chunks(words, words_per_chunk=WORDS_PER_CHUNK):
     return chunks
 
 
-def create_subtitle_clips(chunks, y_pos=None, font_size=None):
+def create_subtitle_clips(chunks, y_pos=None, font_size=None, content_type="story"):
     """
     Creates single-line centered subtitle clips with the viral Shorts style.
 
@@ -123,14 +135,27 @@ def create_subtitle_clips(chunks, y_pos=None, font_size=None):
         chunks: List of word chunks with timing.
         y_pos: Vertical position in pixels. If None, uses 55% of frame height.
         font_size: Override font size. If None, uses ACTIVE_FONT_SIZE.
+        content_type: 'story' or 'inspiration' — changes text color and style.
 
     Returns a list of moviepy clips (text + background bars interleaved).
     """
     subtitle_clips = []
     if y_pos is None:
         y_pos = int(VIDEO_HEIGHT * 0.55)
-    if font_size is None:
-        font_size = ACTIVE_FONT_SIZE
+    
+    # Select style based on content type
+    if content_type == "inspiration":
+        text_color = INSP_ACTIVE_COLOR
+        stroke_w = INSP_STROKE_WIDTH
+        pop_scale = INSP_POP_SCALE
+        if font_size is None:
+            font_size = INSP_FONT_SIZE
+    else:
+        text_color = ACTIVE_COLOR
+        stroke_w = STROKE_WIDTH
+        pop_scale = 1.25
+        if font_size is None:
+            font_size = ACTIVE_FONT_SIZE
 
     for chunk in chunks:
         display_text = chunk['text'].upper()
@@ -144,7 +169,7 @@ def create_subtitle_clips(chunks, y_pos=None, font_size=None):
             color='black',            # The core is black
             font=FONT_NAME,
             stroke_color='black',     # The stroke is black
-            stroke_width=STROKE_WIDTH,
+            stroke_width=stroke_w,
             method='label',          
             align='center'
         )
@@ -152,11 +177,11 @@ def create_subtitle_clips(chunks, y_pos=None, font_size=None):
         # --- Text layer (main fill, NO stroke) ---
         # Add a very thin 2px black stroke as an anti-aliasing buffer.
         # This completely absorbs any jagged edges/fringes on Linux transparent backgrounds
-        # without shrinking the inner yellow fill readability.
+        # without shrinking the inner fill readability.
         txt_clip = TextClip(
             display_text,
             fontsize=font_size,
-            color=ACTIVE_COLOR,       # Pure yellow fill
+            color=text_color,         # Yellow for story, white for inspiration
             font=FONT_NAME,
             stroke_color='black',
             stroke_width=2,
@@ -175,7 +200,7 @@ def create_subtitle_clips(chunks, y_pos=None, font_size=None):
                 color='black',
                 font=FONT_NAME,
                 stroke_color='black',
-                stroke_width=STROKE_WIDTH,
+                stroke_width=stroke_w,
                 method='caption',
                 size=(SUBTITLE_MAX_WIDTH, None),
                 align='center'
@@ -183,7 +208,7 @@ def create_subtitle_clips(chunks, y_pos=None, font_size=None):
             txt_clip = TextClip(
                 display_text,
                 fontsize=font_size,
-                color=ACTIVE_COLOR,
+                color=text_color,
                 font=FONT_NAME,
                 stroke_color='black',
                 stroke_width=2,
@@ -205,9 +230,12 @@ def create_subtitle_clips(chunks, y_pos=None, font_size=None):
                   .set_position(('center', y_pos - bar_padding_y)))
 
         # --- Viral Pop Animation ---
-        def pop_effect(t):
+        # Capture pop_scale in a local variable for the closure
+        _pop_scale = pop_scale
+        _pop_rate = (_pop_scale - 1.0) / 0.07  # Rate to reach 1.0 from pop_scale in 0.07s
+        def pop_effect(t, _s=_pop_scale, _r=_pop_rate):
             if t < 0.07:
-                return 1.25 - (3.57 * t)  
+                return _s - (_r * t)  
             return 1.0
 
         stroke_clip = (stroke_clip
@@ -242,14 +270,18 @@ def trim_audio_silence(audio_clip, threshold_db=-40):
     try:
         fps = audio_clip.fps or 44100
         
-        # Workaround for MoviePy 1.0.3 + Numpy >=1.24 to_soundarray bug
-        try:
-            audio_array = audio_clip.to_soundarray(fps=fps)
-        except TypeError:
-            chunks = list(audio_clip.iter_chunks(fps=fps))
-            if not chunks:
-                return audio_clip
-            audio_array = np.vstack(chunks)
+        # Fix the MoviePy + NumPy TypeError compatibility bug:
+        # Instead of calling self.to_soundarray() which fails by passing a generator
+        # to np.vstack, we manually collect the chunks in a list (sequence type) and stack.
+        buffersize = int(fps * 0.1)  # 100ms chunks
+        chunks = []
+        for chunk in audio_clip.iter_chunks(fps=fps, chunksize=buffersize, quantize=True, nbytes=2):
+            chunks.append(chunk)
+            
+        if not chunks:
+            return audio_clip
+            
+        audio_array = np.vstack(chunks) if audio_clip.nchannels > 1 else np.hstack(chunks)
 
         if audio_array is None or len(audio_array) == 0:
             return audio_clip
@@ -278,7 +310,7 @@ def trim_audio_silence(audio_clip, threshold_db=-40):
 
 
 def create_video(audio_path, srt_path, background_path="assets/background_small.mp4",
-                 output_path="final_video.mp4", bg_start_time=None):
+                 output_path="final_video.mp4", bg_start_time=None, content_type="story"):
     """
     Assembles the final video by combining background, audio, and animated captions.
 
@@ -291,6 +323,8 @@ def create_video(audio_path, srt_path, background_path="assets/background_small.
                        If None, picks a random start (legacy behavior).
                        Set by background_manager.pick_background_segment() to ensure
                        no two shorts use the same footage from the same file.
+        content_type: 'story' or 'inspiration' — selects visual style, music source,
+                      and subtitle colors.
 
     Features:
     - Word-level synced subtitles (exact timing from edge-tts WordBoundary)
@@ -299,6 +333,7 @@ def create_video(audio_path, srt_path, background_path="assets/background_small.
     - Dark gradient overlay for text readability
     - Abrupt ending (trailing silence trimmed)
     - Optimized for 1080x1920 vertical (YouTube Shorts)
+    - Dual style: yellow text + fast zoom (story) vs white text + slow zoom (inspiration)
     """
     print("  Assembling final video...")
 
@@ -361,7 +396,11 @@ def create_video(audio_path, srt_path, background_path="assets/background_small.
         # --- Subtle Zoom Drift ---
         # Background slowly zooms 1.0x → 1.05x over the video duration.
         # Keeps eyes engaged — static backgrounds feel dead and boring.
-        zoom_target = random.uniform(1.03, 1.07)  # Slight random variation
+        # Inspiration uses a slower, calmer zoom.
+        if content_type == "inspiration":
+            zoom_target = random.uniform(INSP_ZOOM_MIN, INSP_ZOOM_MAX)
+        else:
+            zoom_target = random.uniform(1.03, 1.07)
         def zoom_drift(t):
             progress = t / max(audio_duration, 0.1)
             return 1.0 + (zoom_target - 1.0) * progress
@@ -385,14 +424,24 @@ def create_video(audio_path, srt_path, background_path="assets/background_small.
                        .set_position(('center', 'bottom'))
                        .set_opacity(0.4))
 
-    # --- Background Music (CC0 tracks from assets/music/) ---
-    # Subtle ambient music at 12% volume — makes the video feel produced, not robotic.
-    # Drop any CC0/royalty-free .mp3 files into assets/music/ to enable this.
-    music_files = glob.glob(os.path.join('assets', 'music', '*.mp3'))
+    # --- Background Music (CC0 tracks) ---
+    # Select music directory and volume based on content type
+    if content_type == "inspiration":
+        music_dir = INSP_MUSIC_DIR
+        music_vol = INSP_MUSIC_VOLUME
+    else:
+        music_dir = os.path.join('assets', 'music')
+        music_vol = 0.12
+    
+    music_files = glob.glob(os.path.join(music_dir, '*.mp3'))
+    # Fallback: if inspiration music dir is empty, try the regular music dir
+    if not music_files and content_type == "inspiration":
+        music_files = glob.glob(os.path.join('assets', 'music', '*.mp3'))
+    
     if music_files:
         music_path = random.choice(music_files)
         music_name = os.path.basename(music_path)
-        print(f"  Adding background music: {music_name}")
+        print(f"  Adding background music: {music_name} (vol={music_vol})")
         try:
             music = AudioFileClip(music_path)
             # Loop music if shorter than the video
@@ -401,24 +450,28 @@ def create_video(audio_path, srt_path, background_path="assets/background_small.
                 music = music.fx(audio_loop, duration=audio_duration)
             else:
                 music = music.subclip(0, audio_duration)
-            music = music.volumex(0.12)   # 12% volume — background, not competing
+            music = music.volumex(music_vol)
             mixed_audio = CompositeAudioClip([audio, music])
         except Exception as e:
             print(f"  Note: Music load failed ({e}) — using voiceover only")
             mixed_audio = audio
     else:
-        print("  No music files in assets/music/ — add CC0 .mp3 files for better retention")
+        print(f"  No music files in {music_dir}/ — add CC0 .mp3 files for better retention")
         mixed_audio = audio
 
     # Attach mixed audio
     video_with_audio = bg_clip.set_audio(mixed_audio)
 
-    # --- Random caption y-position (45%-60% from top) ---
-    # Wider range per video avoids a repetitive visual template fingerprint
-    caption_y = int(VIDEO_HEIGHT * random.uniform(0.45, 0.60))
+    # --- Random caption y-position ---
+    # Inspiration: centered at 50%, Story: random 45%-60%
+    if content_type == "inspiration":
+        caption_y = int(VIDEO_HEIGHT * 0.50)
+    else:
+        caption_y = int(VIDEO_HEIGHT * random.uniform(0.45, 0.60))
 
     # --- Random font size (±3px) for anti-fingerprinting ---
-    vid_font_size = ACTIVE_FONT_SIZE + random.randint(-3, 3)
+    base_size = INSP_FONT_SIZE if content_type == "inspiration" else ACTIVE_FONT_SIZE
+    vid_font_size = base_size + random.randint(-3, 3)
 
     # --- Animated Subtitles ---
     print("  Generating animated subtitles...")
@@ -429,10 +482,10 @@ def create_video(audio_path, srt_path, background_path="assets/background_small.
         subtitle_clips = []
     else:
         chunks = group_words_into_chunks(words)
-        subtitle_clips = create_subtitle_clips(chunks, y_pos=caption_y, font_size=vid_font_size)
+        subtitle_clips = create_subtitle_clips(chunks, y_pos=caption_y, font_size=vid_font_size, content_type=content_type)
         print(f"  Created {len(subtitle_clips)} subtitle clips "
               f"from {len(words)} words ({WORDS_PER_CHUNK} words/chunk) "
-              f"at y={caption_y}px, font={vid_font_size}px")
+              f"at y={caption_y}px, font={vid_font_size}px, style={content_type}")
 
     # --- Composite Everything ---
     print("  Compositing layers...")
