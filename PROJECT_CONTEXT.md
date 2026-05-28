@@ -1,94 +1,140 @@
-# YT Automater — Project Context
+# YT Automater — Project Context & System Memory
 
-## Goal
-Fully automated YouTube Shorts pipeline that:
-- Posts shorts to YouTube automatically
-- Makes shorts go viral (maximum views)
-- Earns money through YouTube monetization (ad revenue)
+This file serves as the permanent system memory and developer context for the **YT Automater** project. It documents the core objectives, retention philosophies, hard rules, styling specifications, pipeline flow architecture, recent structural optimizations, and critical deployment watch-outs.
 
 ---
 
-## Core Retention Philosophy
+## 🎯 1. Core Goal & Philosophy
+A fully automated, 100% free YouTube Shorts pipeline that posts vertical high-retention shorts to maximize views and earn revenue through YouTube monetization.
 
-The #1 priority of every video is **instant hook + scroll-stop power**.
-
-### Hook Strategy
-- **Punchline first, story second**: Open with the most shocking/embarrassing/curious moment.  
-  The viewer hears the punchline and thinks "wait, how did this happen?" — they HAVE to keep watching.
-- The headline (spoken first in voiceover) must create a "wait, what?" reaction in the first 2 seconds.
-- Story structure: Hook → Setup → Escalation → Cliffhanger (NO resolution — forces rewatch).
-
-### ADHD-Proof Design
-- Background video is fast-paced gameplay (Minecraft parkour, satisfying clips, etc.) — keeps the eyes busy even if ears are the main channel.
-- Captions flash 3 words at a time in sync with the voice — dual-channel engagement (visual + audio).
-- No dead air, no slow moments. Every second must earn the next second.
+### Core Retention Philosophy (ADHD-Proof Design)
+*   **Hook Strategy (Climax First):** Open with the most shocking/embarrassing/curious moment (First 2 seconds). Good opener: *"She sold my car while I was sleeping."* The headline is spoken first in voiceover, creating a *"Wait, how did this happen?"* reaction.
+*   **Story Structure:** Hook ➔ Setup ➔ Escalation ➔ Cliffhanger (NO resolution). Ending the story abruptly on a peak cliffhanger forces rewatches, significantly boosting algorithmic retention.
+*   **Dynamic Visuals:** Fast-paced satisfying motion background loops keep the eyes busy, while captions flash exactly 1 word/chunk at a time in sync with the audio (dual-channel engagement).
+*   **Ambient Production:** Low-volume CC0 ambient music track mixed behind a natural narrator voice with tight silence buffers to prevent dead air.
 
 ---
 
-## Hard Rules
+## ⚖️ 2. Hard Rules (100% Free & Zero Copyright Risk)
 
-### 1. Everything Must Be Free (No Paid Tools)
-- **TTS**: edge-tts (Microsoft Azure Neural voices, free)
-- **AI rewriting**: Google Gemini 2.5 Flash (free tier: 15 RPM, 1500 RPD)
-- **Video assembly**: moviepy + ffmpeg (open source)
-- **Fonts**: Only free/open-source fonts (Montserrat ExtraBold = SIL Open Font License)
-- **Scraping**: Reddit public API / PRAW (free)
-- **YouTube upload**: YouTube Data API v3 (free quota)
-- ❌ No subscriptions, no API paid tiers, no licensed assets
-
-### 2. Zero Copyright Risk
-- **Background videos**: Must be copyright-free / CC0 / self-recorded gameplay.  
-  Minecraft footage is generally safe for monetization if it's gameplay you record yourself or royalty-free sources.
-- **Music**: No background music unless it is explicitly CC0 / royalty-free with commercial use allowed.
-- **Reddit stories**: User-generated content — legally gray but industry-standard for this format.  
-  Do NOT use stories from news articles, books, or copyrighted sources.
-- **Fonts**: Only SIL Open Font License or equivalent.
-- **Images/thumbnails**: Only AI-generated or CC0.
-- ❌ Never use copyrighted music, clips, images, or brand assets.
+*   **TTS:** `edge-tts` (Microsoft Azure Neural voices, free and unlimited).
+*   **AI Rewriting:** Google Gemini 2.5 Flash API (Free tier: 15 requests/min, 1500 requests/day).
+*   **Video Assembly:** `moviepy==1.0.3` + `ffmpeg` (Open source).
+*   **Fonts:** Only SIL Open Font License or equivalent (Montserrat ExtraBold).
+*   **Scraping:** Reddit public RSS feeds (Free and bypasses complex OAuth API limits).
+*   **Background Videos/Music:** 100% copyright-free CC0 assets only (Pixabay/Freesound).
+*   **Secrets Isolation:** `client_secret.json`, `token.pickle`, and `token_base64.txt` are strictly ignored by `.gitignore` to prevent credentials leakage.
 
 ---
 
-## Content Format
+## 🎨 3. Styling & Video Specifications
 
-| Element | Spec |
+| Element | Specification |
 |---|---|
-| Platform | YouTube Shorts (vertical 9:16, 1080×1920) |
-| Duration | ≤ 60 seconds |
-| Source | Reddit (r/pettyrevenge, r/AITA, r/tifu, r/prorevenge, r/confession, r/weddingshaming, r/bridezillas, r/JUSTNOMIL, etc.) |
-| Script | AI-rewritten for virality, 100–115 words, cliffhanger ending, rotating comment bait |
-| Voiceover | edge-tts Neural voices (5-voice rotating pool: Ryan, Aria, Guy, Davis, Jenny) |
-| Captions | 1 word/chunk, center screen, yellow (#FFE000) + thin black stroke (6px) + warm yellow glow, Montserrat ExtraBold 95±3px |
-| Background | Mesmerizing abstract/neon footage (Pixabay CC0), subtle zoom drift 1.0x→1.05x |
-| Upload | Automated via YouTube Data API, randomized 240–420s cooldown |
+| **Platform** | YouTube Shorts (vertical 9:16, 1080×1920) |
+| **Duration** | ≤ 60 seconds (Shorts algorithmic limit) |
+| **Subreddit Pool** | High-conflict subreddits (`r/pettyrevenge`, `r/tifu`, `r/AmItheAsshole`, `r/relationships`, etc.) |
+| **AI Rewrite Script** | curiosity-driven, 100–115 words, Cliffhanger ending + Rotating Comment bait |
+| **Voiceover** | edge-tts Neural voices (rotating pool: `Ryan`, `Aria`, `Guy`, `Christopher`, `Jenny`) at `+10%` speed rate |
+| **Subtitle Font** | Montserrat ExtraBold (viral standard, SIL Open Font Licensed) |
+| **Subtitle Style** | Yellow text (`#FFE000` / `'yellow'`) + black outline (`12px` stroke) + `2px` black anti-aliasing buffer |
+| **Subtitle Animation** | Scale-up pop effect: `1.25x` ➔ `1.0x` in `0.07` seconds on each word chunk |
+| **Subtitle Layout** | Singlecentered line, placed at `45%–60%` from top (randomized offset to bypass YouTube UI overlays) |
+| **Background Loop** | Shuffled satisfying/satisfying loops with slow zoom drift (`1.0x` ➔ `1.05x`) |
+| **Seamless Ending** | `0.4` second crossfade loop to blend the ending into the first frame |
 
 ---
 
-## Visual Style
+## 📊 4. System Pipeline Flow
 
-- **Font**: Montserrat ExtraBold (viral Shorts standard, SIL OFL licensed)
-- **Caption color**: `#FFE000` yellow with thin (6px) black stroke + warm yellow glow halo
-- **Caption position**: ~45–60% from top (randomized per video, clear of YouTube UI)
-- **Words per chunk**: 1 (Hormozi-style karaoke)
-- **Pop animation**: 1.25x → 1.0x in 0.07s (aggressive punch on each word)
-- **Background**: Subtle zoom drift (1.0x → 1.03–1.07x) + random crop offset
-- **Loop ending**: 0.4s crossfade for seamless rewatch
-- **No background music** unless CC0 tracks in assets/music/
+The bot utilizes a modular pipeline flow from scraping down to publishing:
+
+```mermaid
+flowchart TD
+    %% Styling
+    classDef process fill:#1e1e2e,stroke:#cba6f7,stroke-width:2px,color:#cdd6f4;
+    classDef storage fill:#313244,stroke:#a6adc8,stroke-width:1px,color:#cdd6f4;
+    classDef entry fill:#11111b,stroke:#a6e3a1,stroke-width:2px,color:#a6e3a1;
+    classDef exit fill:#11111b,stroke:#f38ba8,stroke-width:2px,color:#f38ba8;
+
+    %% Steps
+    Start([1. Trigger main.py]) --> Setup[2. Setup Directories & Load History]
+    Setup --> LoadHist[(3. Load upload_history.json & used_segments.json)]
+    
+    %% Phase 1
+    LoadHist --> Scrape[4. Scrape Reddit Feeds scraper.py]
+    Scrape --> Filter{5. Filter & Score Stories}
+    Filter -- "Below Score / Duplicate" --> Scrape
+    Filter -- "Viral Score Target" --> Gemini[6. AI Rewrite script_writer.py]
+    
+    %% Phase 2
+    Gemini -->|Gemini 2.5 Flash| VoiceGen[7. TTS Voiceover & Sync audio_gen.py]
+    VoiceGen -->|edge-tts & WordBoundary| VideoGen[8. Video Assembly video_gen.py]
+    
+    %% Phase 3
+    BG_Asset[(CC0 Backgrounds & Music)] --> VideoGen
+    VideoGen -->|moviepy & FFMPEG| Render[9. Render Vertical 9:16 MP4]
+    
+    %% Phase 4
+    Render --> Auth[(OAuth2 Credentials token.pickle)]
+    Auth --> Upload[10. YouTube Upload uploader.py]
+    Upload --> CommBait[11. Pinned Comment Bait & Self-Reply]
+    CommBait --> Cooldown[12. Cooldown 240s-420s]
+    Cooldown --> SaveHist[(13. Save Updated History & Segments)]
+    SaveHist --> Finish([14. Process Next / Complete])
+
+    %% Apply Styles
+    class Start,Finish entry;
+    class Setup,Scrape,Filter,Gemini,VoiceGen,VideoGen,Render,Upload,CommBait,Cooldown process;
+    class LoadHist,BG_Asset,Auth,SaveHist storage;
+```
 
 ---
 
-## TTS Settings
+## 🛠️ 5. Recent System Optimizations & Bug Fixes
 
-- **Rate**: `-5%` (slightly below default — adds natural pauses, prevents rushed feeling)
-- **Voices**: 5-voice rotating pool (en-GB-RyanNeural, en-US-AriaNeural, en-US-GuyNeural, en-US-DavisNeural, en-US-JennyNeural)
-- **Silence trimming**: Ultra-tight 0.05s buffer for abrupt endings that force rewatches
+During recent pipeline testing, several critical bugs were patched to maintain visual quality and automated stability:
+
+### 1. Local Test Video Mode
+*   Added local review flags `--test-video` and `--test-story-file` to `main.py`. This bypasses Reddit scraping and YouTube uploads, rendering a test video from a static story directly into `videos_to_upload/` with a second-level timestamp for QA.
+
+### 2. Shuffled Backgrounds & Persistent Caching (Variety Fix)
+*   **The Bug:** The segment picker checked `if free_time > best_free_time:`. Because `background.mp4` (Minecraft gameplay) is a giant file (~300MB), its remaining duration always beat the shorter stylized loops, keeping the bot stuck on a single clip.
+*   **The Fix:** Updated `pick_background_segment` in `background_manager.py` to compile all valid candidate clips (excluding fallback files), shuffle them, and pick one randomly.
+*   **GitHub Persistent Cache:** We moved `used_segments.json` to the project root and added a mutable, writeable cache block in `.github/workflows/youtube_bot.yml` matching `upload_history.json`. Segment tracking now successfully persists across distinct Actions executions.
+
+### 3. Linux Text Outline Anti-Aliasing (Jagged Yellow Captions)
+*   **The Bug:** On Ubuntu Linux (GitHub Actions), ImageMagick cannot resolve raw `.ttf` file paths, falling back to thin generic fonts. Furthermore, text rendering on transparent backgrounds on Linux introduces subpixel boundaries, causing the yellow text edges to appear jagged and pixelated.
+*   **The Fix:**
+    *   **Ubuntu Registry:** The workflow now copies the font to `/usr/share/fonts/truetype/montserrat` and refreshes the cache (`sudo fc-cache -f -v`).
+    *   **Actions Detector:** `video_gen.py` checks `if os.environ.get("GITHUB_ACTIONS") == "true":` and loads the font globally by family name `"Montserrat-ExtraBold"`.
+    *   **Smooth Outline Buffer:** Added a thin `2px` black stroke (`stroke_color='black', stroke_width=2`) to the foreground yellow `TextClip`. This thin outline completely absorbs the jagged transparency fringes, creating beautifully smoothed captions.
+
+### 4. MoviePy + NumPy Stacking `TypeError` (Silence Trim Fix)
+*   **The Bug:** MoviePy 1.0.3's `audio_clip.to_soundarray()` raises a `TypeError` on modern NumPy versions (1.24+ and 2.x) because it attempts to pass a generator to `np.vstack`. This silently crashed `trim_audio_silence` on every execution.
+*   **The Effect:** Videos were rendered with `0.5s` to `1.5s` of dead silence at the end, breaking the seamless loop retention and hurting search algorithms.
+*   **The Fix:** Replaced `to_soundarray()` with a robust sequence-stacking routine:
+    ```python
+    buffersize = int(fps * 0.1)  # 100ms chunks
+    chunks = []
+    for chunk in audio_clip.iter_chunks(fps=fps, chunksize=buffersize, quantize=True, nbytes=2):
+        chunks.append(chunk)
+    audio_array = np.vstack(chunks) if audio_clip.nchannels > 1 else np.hstack(chunks)
+    ```
+    This completely restores the abrupt ending and infinite-loop crossfade transition.
+
+### 5. Active Voice Pool Swap
+*   **The Bug:** Microsoft deprecated the `en-US-DavisNeural` voice, causing a `No audio was received` network crash in the pipeline.
+*   **The Fix:** Replaced the voice inside `audio_gen.py`'s `VOICE_POOL` with the active deep male voice `en-US-ChristopherNeural`.
 
 ---
 
-## Notes for Future Development
+## ⚠️ 6. Deployment & Runtime Guidelines
 
-- More background video variety needed (5–10 clips) to avoid repetitive content flags
-- Consider A/B testing 1 vs 2 words per chunk
-- Thumbnail automation not yet implemented
-- Comment pinning / engagement automation: rotating pool implemented (10 variations + self-reply)
-- Upload scheduling with timezone-aware timing not yet implemented
-- YouTube Studio "Related Video" linking not yet automated
+### Google Cloud OAuth Token Expiry (The 7-Day Crash)
+*   **The Danger:** If your GCP project's publishing status is set to **"Testing"**, all OAuth2 refresh tokens expire after exactly 7 days. Your GitHub Actions pipeline will fail to authenticate after 1 week.
+*   **The Mitigation:** Go to your **GCP Console** ➔ **APIs & Services** ➔ **OAuth consent screen** and click the **"Publish App"** button to move the project to **"In Production"**. This makes your refresh token permanent.
+
+### Pillow Dependency Version Pinning
+*   **The Danger:** MoviePy 1.0.3 utilizes rendering methods that were deprecated and completely removed in Pillow 10.x+. 
+*   **The Mitigation:** You **must** keep Pillow pinned to `9.5.0` inside `requirements.txt` to avoid text compilation crashes during video rendering.
