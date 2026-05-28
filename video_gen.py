@@ -150,12 +150,17 @@ def create_subtitle_clips(chunks, y_pos=None, font_size=None):
         )
 
         # --- Text layer (main fill, NO stroke) ---
+        # Add a very thin 2px black stroke as an anti-aliasing buffer.
+        # This completely absorbs any jagged edges/fringes on Linux transparent backgrounds
+        # without shrinking the inner yellow fill readability.
         txt_clip = TextClip(
             display_text,
             fontsize=font_size,
             color=ACTIVE_COLOR,       # Pure yellow fill
             font=FONT_NAME,
-            method='label',           # No stroke applied here so it doesn't get overwritten!
+            stroke_color='black',
+            stroke_width=2,
+            method='label',           
             align='center'
         )
 
@@ -180,6 +185,8 @@ def create_subtitle_clips(chunks, y_pos=None, font_size=None):
                 fontsize=font_size,
                 color=ACTIVE_COLOR,
                 font=FONT_NAME,
+                stroke_color='black',
+                stroke_width=2,
                 method='caption',
                 size=(SUBTITLE_MAX_WIDTH, None),
                 align='center'
