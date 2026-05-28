@@ -71,6 +71,14 @@ jobs:
           echo "Montserrat font already cached."
         fi
 
+    - name: Download background music (if not cached)
+      run: |
+        python download_music.py
+
+    - name: Download background videos (if not cached)
+      run: |
+        python download_backgrounds.py
+
     - name: Run Bot Pipeline
       env:
         # Pulls the secret base64 token you set in GitHub Repo Settings
