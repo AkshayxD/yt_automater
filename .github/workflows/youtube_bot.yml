@@ -2,13 +2,19 @@ name: YouTube Shorts Automater
 
 on:
   schedule:
-    # Peak Indian engagement times (2 story + 1 inspiration daily):
-    # 9:30 AM IST  = 4:00 AM UTC  → Story #1 (morning commute)
-    # 12:30 PM IST = 7:00 AM UTC  → Story #2 (lunch break)
-    # 7:00 PM IST  = 1:30 PM UTC  → Inspiration #1 (evening scroll)
-    - cron: '0 4 * * *'
-    - cron: '0 7 * * *'
-    - cron: '30 13 * * *'
+    # Peak Indian engagement times (IST = UTC + 5:30):
+    # 8:00 AM IST  = 2:30 AM UTC  → Fake Text
+    # 10:30 AM IST = 5:00 AM UTC  → Story
+    # 1:30 PM IST  = 8:00 AM UTC  → True Crime
+    # 4:30 PM IST  = 11:00 AM UTC → Would You Rather
+    # 7:30 PM IST  = 2:00 PM UTC  → Dark Psychology
+    # 10:00 PM IST = 4:30 PM UTC  → Inspiration
+    - cron: '30 2 * * *'
+    - cron: '0 5 * * *'
+    - cron: '0 8 * * *'
+    - cron: '0 11 * * *'
+    - cron: '0 14 * * *'
+    - cron: '30 16 * * *'
   workflow_dispatch: # Allows manual triggering from the GitHub Actions tab
     inputs:
       content_type:
@@ -19,6 +25,10 @@ on:
         options:
           - story
           - inspiration
+          - would_you_rather
+          - fake_text
+          - dark_psychology
+          - true_crime
 
 jobs:
   generate_and_upload:
@@ -93,9 +103,10 @@ jobs:
       run: |
         python download_backgrounds.py
 
-    - name: Download inspiration assets (if not cached)
+    - name: Download all assets (including new types)
       run: |
         python download_inspiration_assets.py
+        python download_content_assets.py
 
     - name: Determine content type from schedule
       id: content-type
@@ -106,14 +117,28 @@ jobs:
           echo "Using manual content type: ${{ github.event.inputs.content_type }}"
         else
           # Auto-detect from cron schedule:
-          # 4:00 UTC and 7:00 UTC = story, 13:30 UTC = inspiration
           HOUR=$(date -u +%H)
-          if [ "$HOUR" -ge 13 ]; then
+          if [ "$HOUR" -eq 2 ] || [ "$HOUR" -eq 3 ]; then
+            echo "type=fake_text" >> $GITHUB_OUTPUT
+            echo "2:30 UTC slot detected → Fake Text"
+          elif [ "$HOUR" -eq 4 ] || [ "$HOUR" -eq 5 ]; then
+            echo "type=story" >> $GITHUB_OUTPUT
+            echo "5:00 UTC slot detected → Story"
+          elif [ "$HOUR" -eq 7 ] || [ "$HOUR" -eq 8 ]; then
+            echo "type=true_crime" >> $GITHUB_OUTPUT
+            echo "8:00 UTC slot detected → True Crime"
+          elif [ "$HOUR" -eq 10 ] || [ "$HOUR" -eq 11 ]; then
+            echo "type=would_you_rather" >> $GITHUB_OUTPUT
+            echo "11:00 UTC slot detected → Would You Rather"
+          elif [ "$HOUR" -eq 13 ] || [ "$HOUR" -eq 14 ]; then
+            echo "type=dark_psychology" >> $GITHUB_OUTPUT
+            echo "14:00 UTC slot detected → Dark Psychology"
+          elif [ "$HOUR" -eq 16 ] || [ "$HOUR" -eq 17 ]; then
             echo "type=inspiration" >> $GITHUB_OUTPUT
-            echo "Evening slot detected → Inspiration content"
+            echo "16:30 UTC slot detected → Inspiration"
           else
             echo "type=story" >> $GITHUB_OUTPUT
-            echo "Morning/afternoon slot detected → Story content"
+            echo "Unknown slot detected → Defaulting to Story"
           fi
         fi
 

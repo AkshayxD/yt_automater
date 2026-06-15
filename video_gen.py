@@ -68,6 +68,50 @@ INSP_MUSIC_VOLUME = 0.15    # Slightly louder atmospheric music
 INSP_BG_DIR = os.path.join('assets', 'inspiration_bg')
 INSP_MUSIC_DIR = os.path.join('assets', 'inspiration_music')
 
+# --- Would You Rather Style ---
+# Vibrant green text with exaggerated pop — quiz/game show energy
+WYR_ACTIVE_COLOR = '#00FF88'
+WYR_FONT_SIZE = 90
+WYR_STROKE_WIDTH = 10
+WYR_POP_SCALE = 1.30              # Exaggerated pop — energetic
+WYR_ZOOM_MIN = 1.04
+WYR_ZOOM_MAX = 1.08
+WYR_BG_DIR = os.path.join('assets', 'wyr_bg')
+
+# --- Fake Text Style ---
+# Uses chat bubble rendering instead of standard subtitles (handled separately)
+# Standard subtitles still used for the narration track
+FT_ACTIVE_COLOR = '#E0E0E0'       # Light gray narration text
+FT_FONT_SIZE = 85
+FT_STROKE_WIDTH = 10
+FT_POP_SCALE = 1.20
+FT_BUBBLE_ME_COLOR = (0, 122, 255)     # iMessage blue for "me"
+FT_BUBBLE_THEM_COLOR = (58, 58, 60)    # Dark gray for "them"
+FT_BUBBLE_TEXT_COLOR = 'white'
+FT_BUBBLE_FONT_SIZE = 32               # Smaller — chat text
+FT_BG_DIR = os.path.join('assets', 'fake_text_bg')
+
+# --- Dark Psychology Style ---
+# Red accent text — danger/warning feel, authoritative
+DP_ACTIVE_COLOR = '#FF3333'
+DP_FONT_SIZE = 85
+DP_STROKE_WIDTH = 10
+DP_POP_SCALE = 1.20
+DP_ZOOM_MIN = 1.02
+DP_ZOOM_MAX = 1.05
+DP_BG_DIR = os.path.join('assets', 'dark_psych_bg')
+
+# --- True Crime Style ---
+# Pale gray text — washed out, eerie, minimal animation for creepy stillness
+TC_ACTIVE_COLOR = '#CCCCCC'
+TC_FONT_SIZE = 80
+TC_STROKE_WIDTH = 8
+TC_POP_SCALE = 1.10               # Minimal pop — slow, creepy
+TC_ZOOM_MIN = 1.00                # Almost no zoom — static dread
+TC_ZOOM_MAX = 1.02
+TC_BG_DIR = os.path.join('assets', 'true_crime_bg')
+TC_MUSIC_DIR = os.path.join('assets', 'true_crime_music')
+
 
 def parse_srt(srt_file):
     """
@@ -135,7 +179,8 @@ def create_subtitle_clips(chunks, y_pos=None, font_size=None, content_type="stor
         chunks: List of word chunks with timing.
         y_pos: Vertical position in pixels. If None, uses 55% of frame height.
         font_size: Override font size. If None, uses ACTIVE_FONT_SIZE.
-        content_type: 'story' or 'inspiration' — changes text color and style.
+        content_type: 'story', 'inspiration', 'would_you_rather', 'fake_text',
+                      'dark_psychology', or 'true_crime' — changes text color and style.
 
     Returns a list of moviepy clips (text + background bars interleaved).
     """
@@ -150,6 +195,30 @@ def create_subtitle_clips(chunks, y_pos=None, font_size=None, content_type="stor
         pop_scale = INSP_POP_SCALE
         if font_size is None:
             font_size = INSP_FONT_SIZE
+    elif content_type == "would_you_rather":
+        text_color = WYR_ACTIVE_COLOR
+        stroke_w = WYR_STROKE_WIDTH
+        pop_scale = WYR_POP_SCALE
+        if font_size is None:
+            font_size = WYR_FONT_SIZE
+    elif content_type == "fake_text":
+        text_color = FT_ACTIVE_COLOR
+        stroke_w = FT_STROKE_WIDTH
+        pop_scale = FT_POP_SCALE
+        if font_size is None:
+            font_size = FT_FONT_SIZE
+    elif content_type == "dark_psychology":
+        text_color = DP_ACTIVE_COLOR
+        stroke_w = DP_STROKE_WIDTH
+        pop_scale = DP_POP_SCALE
+        if font_size is None:
+            font_size = DP_FONT_SIZE
+    elif content_type == "true_crime":
+        text_color = TC_ACTIVE_COLOR
+        stroke_w = TC_STROKE_WIDTH
+        pop_scale = TC_POP_SCALE
+        if font_size is None:
+            font_size = TC_FONT_SIZE
     else:
         text_color = ACTIVE_COLOR
         stroke_w = STROKE_WIDTH
@@ -309,8 +378,140 @@ def trim_audio_silence(audio_clip, threshold_db=-40):
     return audio_clip
 
 
+def create_chat_bubble_clips(messages, audio_duration):
+    """
+    Renders iMessage-style chat bubbles for the fake_text content type.
+    Bubbles stack from top to bottom, appearing sequentially.
+    """
+    if not messages:
+        return []
+        
+    clips = []
+    # Simplified timing: divide duration equally among messages, 
+    # but first message starts a bit later.
+    num_msgs = len(messages)
+    start_delay = 2.0
+    time_per_msg = (audio_duration - start_delay) / max(1, num_msgs)
+    
+    y_offset = int(VIDEO_HEIGHT * 0.15)  # Start 15% down from top
+    bubble_spacing = 25
+    
+    for i, msg in enumerate(messages):
+        sender = msg.get("sender", "them").lower()
+        text = msg.get("text", "").upper()
+        
+        start_time = start_delay + (i * time_per_msg)
+        
+        # Color & Position based on sender
+        if sender == "me":
+            bg_color = FT_BUBBLE_ME_COLOR
+            align = "right"
+            x_pos = VIDEO_WIDTH - 60  # Right padding
+        else:
+            bg_color = FT_BUBBLE_THEM_COLOR
+            align = "left"
+            x_pos = 60  # Left padding
+            
+        # Text
+        txt_clip = TextClip(
+            text,
+            fontsize=FT_BUBBLE_FONT_SIZE,
+            color=FT_BUBBLE_TEXT_COLOR,
+            font=FONT_NAME,
+            method='caption',
+            align=align,
+            size=(int(VIDEO_WIDTH * 0.7), None)  # Max width 70% of screen
+        )
+        
+        # Bubble Background (add padding)
+        padding_x = 40
+        padding_y = 30
+        w, h = txt_clip.size
+        bg_w, bg_h = w + padding_x, h + padding_y
+        
+        # We use ColorClip for the bubble background
+        bubble_bg = ColorClip(size=(bg_w, bg_h), color=bg_color).set_opacity(0.95)
+        
+        # Composite text over background
+        bubble = CompositeVideoClip([
+            bubble_bg, 
+            txt_clip.set_position('center')
+        ], size=(bg_w, bg_h))
+        
+        # Calculate final x position based on alignment
+        if align == "right":
+            final_x = x_pos - bg_w
+        else:
+            final_x = x_pos
+            
+        # Animate bubble appearance (slide up slightly)
+        bubble = bubble.set_start(start_time).set_end(audio_duration)
+        
+        # We need a closure to capture the loop variables properly
+        def make_pos(final_x, y_off, st):
+            def pos(t):
+                if t - st < 0:
+                    return (final_x, y_off + 50)  # Hidden/off before start
+                elif t - st < 0.2:
+                    return (final_x, y_off + max(0, 50 * (1 - (t - st) * 5)))
+                return (final_x, y_off)
+            return pos
+            
+        bubble = bubble.set_position(make_pos(final_x, y_offset, start_time))
+        
+        clips.append(bubble)
+        y_offset += bg_h + bubble_spacing
+        
+    return clips
+
+
+def add_sfx_hits(audio_clip, words_data):
+    """
+    Scans the SRT data for dramatic words and inserts a programmatic impact SFX.
+    No external audio files needed — generates a low sine wave burst.
+    """
+    sfx_clips = [audio_clip]
+    dramatic_words = ["DEAD", "GONE", "NEVER", "ALWAYS", "WRONG", "SUDDENLY", "STOP", "NO", "KILLED", "DIED"]
+    
+    fps = 44100
+    duration = 0.5
+    t = np.linspace(0, duration, int(fps * duration), endpoint=False)
+    # Generate a low impact sound (frequency drops rapidly)
+    freqs = np.linspace(150, 40, len(t))
+    audio_array = 0.5 * np.sin(2 * np.pi * freqs * t)
+    # Fade out
+    fade = np.linspace(1, 0, len(t))
+    audio_array = audio_array * fade
+    
+    # We must format it as stereo for CompositeAudioClip
+    stereo_array = np.column_stack((audio_array, audio_array))
+    from moviepy.audio.AudioClip import AudioArrayClip
+    sfx_base = AudioArrayClip(stereo_array, fps=fps).volumex(0.15)
+    
+    hits_added = 0
+    # Add a minimum gap between SFX so it doesn't get annoying
+    last_hit_time = -5.0
+    
+    for chunk in words_data:
+        text = chunk['text'].upper().strip(".,!?\"'")
+        # Only check single words or split
+        chunk_words = text.split()
+        if any(w in dramatic_words for w in chunk_words):
+            start = chunk['start']
+            if start - last_hit_time > 3.0 and start + duration < audio_clip.duration:
+                sfx = sfx_base.set_start(start)
+                sfx_clips.append(sfx)
+                hits_added += 1
+                last_hit_time = start
+                
+    if hits_added > 0:
+        print(f"  🔊 Added {hits_added} dramatic SFX hits based on transcript")
+        return CompositeAudioClip(sfx_clips)
+    return audio_clip
+
+
 def create_video(audio_path, srt_path, background_path="assets/background_small.mp4",
-                 output_path="final_video.mp4", bg_start_time=None, content_type="story"):
+                 output_path="final_video.mp4", bg_start_time=None, content_type="story", messages=None):
     """
     Assembles the final video by combining background, audio, and animated captions.
 
@@ -323,8 +524,9 @@ def create_video(audio_path, srt_path, background_path="assets/background_small.
                        If None, picks a random start (legacy behavior).
                        Set by background_manager.pick_background_segment() to ensure
                        no two shorts use the same footage from the same file.
-        content_type: 'story' or 'inspiration' — selects visual style, music source,
-                      and subtitle colors.
+        content_type: 'story', 'inspiration', 'would_you_rather', 'fake_text',
+                       'dark_psychology', or 'true_crime' — selects visual style,
+                       music source, and subtitle colors.
 
     Features:
     - Word-level synced subtitles (exact timing from edge-tts WordBoundary)
@@ -333,7 +535,7 @@ def create_video(audio_path, srt_path, background_path="assets/background_small.
     - Dark gradient overlay for text readability
     - Abrupt ending (trailing silence trimmed)
     - Optimized for 1080x1920 vertical (YouTube Shorts)
-    - Dual style: yellow text + fast zoom (story) vs white text + slow zoom (inspiration)
+    - 6 visual styles: story/inspiration/wyr/fake_text/dark_psych/true_crime
     """
     print("  Assembling final video...")
 
@@ -396,11 +598,15 @@ def create_video(audio_path, srt_path, background_path="assets/background_small.
         # --- Subtle Zoom Drift ---
         # Background slowly zooms 1.0x → 1.05x over the video duration.
         # Keeps eyes engaged — static backgrounds feel dead and boring.
-        # Inspiration uses a slower, calmer zoom.
-        if content_type == "inspiration":
-            zoom_target = random.uniform(INSP_ZOOM_MIN, INSP_ZOOM_MAX)
-        else:
-            zoom_target = random.uniform(1.03, 1.07)
+        # Each content type uses its own zoom range for the right feel.
+        zoom_ranges = {
+            "inspiration": (INSP_ZOOM_MIN, INSP_ZOOM_MAX),
+            "would_you_rather": (WYR_ZOOM_MIN, WYR_ZOOM_MAX),
+            "dark_psychology": (DP_ZOOM_MIN, DP_ZOOM_MAX),
+            "true_crime": (TC_ZOOM_MIN, TC_ZOOM_MAX),
+        }
+        z_min, z_max = zoom_ranges.get(content_type, (1.03, 1.07))
+        zoom_target = random.uniform(z_min, z_max)
         def zoom_drift(t):
             progress = t / max(audio_duration, 0.1)
             return 1.0 + (zoom_target - 1.0) * progress
@@ -426,16 +632,18 @@ def create_video(audio_path, srt_path, background_path="assets/background_small.
 
     # --- Background Music (CC0 tracks) ---
     # Select music directory and volume based on content type
-    if content_type == "inspiration":
-        music_dir = INSP_MUSIC_DIR
-        music_vol = INSP_MUSIC_VOLUME
-    else:
-        music_dir = os.path.join('assets', 'music')
-        music_vol = 0.12
+    music_config = {
+        "inspiration": (INSP_MUSIC_DIR, INSP_MUSIC_VOLUME),
+        "true_crime": (TC_MUSIC_DIR, 0.18),          # Louder eerie ambient
+        "dark_psychology": (os.path.join('assets', 'music'), 0.10),  # Subtle
+        "would_you_rather": (os.path.join('assets', 'music'), 0.08), # Very subtle
+        "fake_text": (os.path.join('assets', 'music'), 0.08),        # Very subtle
+    }
+    music_dir, music_vol = music_config.get(content_type, (os.path.join('assets', 'music'), 0.12))
     
     music_files = glob.glob(os.path.join(music_dir, '*.mp3'))
-    # Fallback: if inspiration music dir is empty, try the regular music dir
-    if not music_files and content_type == "inspiration":
+    # Fallback: if type-specific music dir is empty, try the regular music dir
+    if not music_files and content_type != "story":
         music_files = glob.glob(os.path.join('assets', 'music', '*.mp3'))
     
     if music_files:
@@ -459,23 +667,41 @@ def create_video(audio_path, srt_path, background_path="assets/background_small.
         print(f"  No music files in {music_dir}/ — add CC0 .mp3 files for better retention")
         mixed_audio = audio
 
+    words = parse_srt(srt_path)
+
+    # --- Auto SFX Hits ---
+    if content_type in ["true_crime", "dark_psychology", "story", "would_you_rather"]:
+        if words:
+            mixed_audio = add_sfx_hits(mixed_audio, words)
+
     # Attach mixed audio
     video_with_audio = bg_clip.set_audio(mixed_audio)
 
     # --- Random caption y-position ---
-    # Inspiration: centered at 50%, Story: random 45%-60%
-    if content_type == "inspiration":
-        caption_y = int(VIDEO_HEIGHT * 0.50)
+    # Each content type has its preferred caption position
+    caption_y_map = {
+        "inspiration": 0.50,
+        "dark_psychology": 0.52,
+        "true_crime": 0.50,
+    }
+    if content_type in caption_y_map:
+        caption_y = int(VIDEO_HEIGHT * caption_y_map[content_type])
     else:
         caption_y = int(VIDEO_HEIGHT * random.uniform(0.45, 0.60))
 
     # --- Random font size (±3px) for anti-fingerprinting ---
-    base_size = INSP_FONT_SIZE if content_type == "inspiration" else ACTIVE_FONT_SIZE
+    font_size_map = {
+        "inspiration": INSP_FONT_SIZE,
+        "would_you_rather": WYR_FONT_SIZE,
+        "fake_text": FT_FONT_SIZE,
+        "dark_psychology": DP_FONT_SIZE,
+        "true_crime": TC_FONT_SIZE,
+    }
+    base_size = font_size_map.get(content_type, ACTIVE_FONT_SIZE)
     vid_font_size = base_size + random.randint(-3, 3)
 
     # --- Animated Subtitles ---
     print("  Generating animated subtitles...")
-    words = parse_srt(srt_path)
 
     if not words:
         print("  ⚠️ No subtitles found in SRT file!")
@@ -487,9 +713,15 @@ def create_video(audio_path, srt_path, background_path="assets/background_small.
               f"from {len(words)} words ({WORDS_PER_CHUNK} words/chunk) "
               f"at y={caption_y}px, font={vid_font_size}px, style={content_type}")
 
+    # --- Fake Text Chat Bubbles ---
+    bubble_clips = []
+    if content_type == "fake_text" and messages:
+        print("  Generating chat bubbles...")
+        bubble_clips = create_chat_bubble_clips(messages, audio_duration)
+
     # --- Composite Everything ---
     print("  Compositing layers...")
-    all_clips = [video_with_audio, gradient_top, gradient_bottom] + subtitle_clips
+    all_clips = [video_with_audio, gradient_top, gradient_bottom] + bubble_clips + subtitle_clips
     final_video = CompositeVideoClip(all_clips, size=(VIDEO_WIDTH, VIDEO_HEIGHT))
 
     # --- Seamless Loop Ending ---

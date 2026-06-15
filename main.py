@@ -18,6 +18,10 @@ from youtube_api import get_authenticated_service
 from uploader import upload_video
 from script_writer import rewrite_story
 from inspiration_writer import generate_inspiration_script
+from wyr_writer import generate_wyr_script
+from fake_text_writer import generate_fake_text_script
+from dark_psych_writer import generate_dark_psych_script
+from true_crime_writer import generate_true_crime_script
 from background_manager import pick_background_segment, record_used_segment
 
 # --- Directories ---
@@ -230,6 +234,158 @@ def generate_inspiration_metadata(headline, script_text, philosopher):
     
     all_tags = base_tags + topic_tags
     all_tags = all_tags[:10]  # Hard cap at 10
+    
+    return short_title, description, all_tags
+
+
+def generate_wyr_metadata(headline, script_text):
+    """
+    Generates SEO-optimized metadata for Would You Rather shorts.
+    
+    Returns: (short_title, description, tags)
+    """
+    short_title = headline.strip().strip('"').strip("'").strip()
+    if len(short_title) > 50:
+        short_title = short_title[:47]
+        last_space = short_title.rfind(' ')
+        if last_space > 25:
+            short_title = short_title[:last_space]
+        short_title += "..."
+    
+    first_sentence = script_text.split('.')[0].strip() if script_text else ""
+    if len(first_sentence) > 120:
+        first_sentence = first_sentence[:117] + "..."
+    
+    description = (
+        f"{first_sentence}\n\n"
+        f"#Shorts #WouldYouRather #ThisOrThat #Quiz #Debate\n\n"
+        f"Comment A or B! \U0001F447\n"
+        f"Follow for daily impossible choices \U0001F514\n\n"
+        f"---\n"
+        f"#WYR #Questions #FunFacts"
+    )
+    
+    base_tags = ["shorts", "would you rather", "this or that", "quiz", "debate"]
+    topic_tags = ["fun questions", "impossible choices", "wyr", "comment below", "interactive"]
+    all_tags = base_tags + topic_tags
+    all_tags = all_tags[:10]
+    
+    return short_title, description, all_tags
+
+
+def generate_fake_text_metadata(headline, script_text):
+    """
+    Generates SEO-optimized metadata for Fake Text Message shorts.
+    
+    Returns: (short_title, description, tags)
+    """
+    short_title = headline.strip().strip('"').strip("'").strip()
+    if len(short_title) > 50:
+        short_title = short_title[:47]
+        last_space = short_title.rfind(' ')
+        if last_space > 25:
+            short_title = short_title[:last_space]
+        short_title += "..."
+    
+    first_sentence = script_text.split('.')[0].strip() if script_text else ""
+    if len(first_sentence) > 120:
+        first_sentence = first_sentence[:117] + "..."
+    
+    description = (
+        f"{first_sentence}\n\n"
+        f"#Shorts #TextStory #FakeTexts #Drama #StoryTime\n\n"
+        f"Would you have replied? \U0001F4F1\n"
+        f"Follow for daily text dramas \U0001F514\n\n"
+        f"---\n"
+        f"#TextMessages #Toxic #Relationships"
+    )
+    
+    base_tags = ["shorts", "text story", "fake texts", "drama", "storytime"]
+    topic_tags = ["text messages", "toxic texts", "relationships", "messages", "chat story"]
+    all_tags = base_tags + topic_tags
+    all_tags = all_tags[:10]
+    
+    return short_title, description, all_tags
+
+
+def generate_dark_psych_metadata(headline, script_text, topic):
+    """
+    Generates SEO-optimized metadata for Dark Psychology shorts.
+    
+    Returns: (short_title, description, tags)
+    """
+    short_title = headline.strip().strip('"').strip("'").strip()
+    if len(short_title) > 50:
+        short_title = short_title[:47]
+        last_space = short_title.rfind(' ')
+        if last_space > 25:
+            short_title = short_title[:last_space]
+        short_title += "..."
+    
+    first_sentence = script_text.split('.')[0].strip() if script_text else ""
+    if len(first_sentence) > 120:
+        first_sentence = first_sentence[:117] + "..."
+    
+    description = (
+        f"{first_sentence}\n\n"
+        f"#Shorts #DarkPsychology #Manipulation #Psychology #MindTricks\n\n"
+        f"Save this. You'll need it. \U0001F4CC\n"
+        f"Follow for daily psychology \U0001F514\n\n"
+        f"---\n"
+        f"Topic: {topic}\n"
+        f"#PsychologyFacts #SelfDefense #Awareness"
+    )
+    
+    base_tags = ["shorts", "dark psychology", "manipulation", "psychology", "mind tricks"]
+    topic_tags = ["psychology facts", "narcissist", "self defense", "awareness", "did you know"]
+    
+    if topic:
+        topic_tag = topic.lower().replace("the ", "").replace(" — ", " ")
+        if topic_tag not in [t.lower() for t in topic_tags]:
+            topic_tags.append(topic_tag)
+    
+    all_tags = base_tags + topic_tags
+    all_tags = all_tags[:10]
+    
+    return short_title, description, all_tags
+
+
+def generate_true_crime_metadata(headline, script_text, source_sub):
+    """
+    Generates SEO-optimized metadata for True Crime / Scary Story shorts.
+    
+    Returns: (short_title, description, tags)
+    """
+    short_title = headline.strip().strip('"').strip("'").strip()
+    if len(short_title) > 50:
+        short_title = short_title[:47]
+        last_space = short_title.rfind(' ')
+        if last_space > 25:
+            short_title = short_title[:last_space]
+        short_title += "..."
+    
+    first_sentence = script_text.split('.')[0].strip() if script_text else ""
+    if len(first_sentence) > 120:
+        first_sentence = first_sentence[:117] + "..."
+    
+    description = (
+        f"{first_sentence}\n\n"
+        f"#Shorts #ScaryStories #Horror #TrueCrime #Creepy\n\n"
+        f"Don't watch this alone... \U0001F480\n"
+        f"Follow for daily horror \U0001F514\n\n"
+        f"---\n"
+        f"#CreepyStories #Paranormal #NightmareStories"
+    )
+    
+    base_tags = ["shorts", "scary stories", "horror", "true crime", "creepy"]
+    topic_tags = ["creepy stories", "paranormal", "nightmare", "nosleep", "haunted"]
+    
+    if source_sub and not source_sub.startswith("ai_"):
+        sub_tag = source_sub.lower().replace("_", " ")
+        topic_tags.append(sub_tag)
+    
+    all_tags = base_tags + topic_tags
+    all_tags = all_tags[:10]
     
     return short_title, description, all_tags
 
@@ -553,6 +709,545 @@ def create_inspirational_short(youtube_client=None, history=None, voice=None):
     return result
 
 
+def create_wyr_short(youtube_client=None, history=None, voice=None):
+    """
+    Pipeline for Would You Rather shorts.
+    
+    Differences from other pipelines:
+    - Uses wyr_writer.py (AI-generated WYR dilemmas)
+    - Vibrant green text, exaggerated pop animation
+    - Faster TTS rate for energetic delivery
+    - Uploads under category 24 (Entertainment)
+    
+    Returns:
+        dict with 'success', 'title', 'video_id', 'file_path' keys
+    """
+    result = {'success': False, 'title': None, 'video_id': None, 'file_path': None}
+    
+    # 1. Get recently used themes from history
+    used_themes = []
+    if history:
+        for vid in history.get('videos', [])[-30:]:
+            theme = vid.get('wyr_theme')
+            if theme:
+                used_themes.append(theme)
+    
+    # 2. Generate WYR script via Gemini AI
+    print("\n  \U0001F3AF Generating Would You Rather script...")
+    headline, script_text, option_a, option_b, theme_name = generate_wyr_script(used_themes)
+    
+    print(f"\n  \U0001F4F0 Headline: {headline}")
+    print(f"  \U0001F1E6 Option A: {option_a}")
+    print(f"  \U0001F1E7 Option B: {option_b}")
+    print(f"  \U0001F4CF Words: {len(script_text.split())}")
+    
+    # 3. Generate Audio (energetic voice, faster rate)
+    print("  \U0001F3A4 Generating voiceover...")
+    audio_file = os.path.join(TEMP_DIR, "audio.mp3")
+    subs_file = os.path.join(TEMP_DIR, "subs.srt")
+    
+    mp3_path, srt_path = generate_audio_and_subs(
+        script_text, audio_file, subs_file,
+        voice=voice, content_type="would_you_rather"
+    )
+    
+    if not mp3_path or not srt_path:
+        print("  \u274C Failed to generate audio. Aborting.")
+        return result
+    
+    # 4. Pick background
+    import glob
+    wyr_bg_dir = os.path.join(ASSETS_DIR, "wyr_bg")
+    wyr_bg_files = glob.glob(os.path.join(wyr_bg_dir, '*.mp4'))
+    
+    if wyr_bg_files:
+        bg_video = random.choice(wyr_bg_files)
+        print(f"  \U0001F3AC Using WYR background: {os.path.basename(bg_video)}")
+    else:
+        bg_video, bg_start = pick_background_segment(needed_duration=50.0)
+        if bg_video is None:
+            bg_video = os.path.join(ASSETS_DIR, "background_small.mp4")
+        print(f"  \u26A0\uFE0F No WYR backgrounds found, using: {os.path.basename(bg_video)}")
+    
+    # 5. Assemble Video (WYR style: green text, exaggerated pop)
+    safe_title = "".join([c for c in headline if c.isalpha() or c.isdigit() or c == ' ']).rstrip()
+    safe_title_underscored = safe_title.replace(" ", "_")[:50]
+    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+    final_video_path = os.path.join(VIDEOS_DIR, f"WYR_{safe_title_underscored}_{timestamp}.mp4")
+    
+    print("  \U0001F3A5 Assembling WYR video...")
+    try:
+        rendered_video = create_video(
+            mp3_path, srt_path,
+            background_path=bg_video,
+            output_path=final_video_path,
+            bg_start_time=None,
+            content_type="would_you_rather"
+        )
+    except Exception as e:
+        print(f"  \u274C Error during video generation: {e}")
+        return result
+    
+    # 6. Generate metadata
+    short_title, description, tags = generate_wyr_metadata(headline, script_text)
+    print(f"  \U0001F4CB Upload title: {short_title}")
+    
+    # 7. Upload to YouTube
+    if youtube_client:
+        print("  \U0001F4E4 Uploading to YouTube...")
+        try:
+            video_id = upload_video(
+                youtube=youtube_client,
+                file_path=rendered_video,
+                title=short_title,
+                description=description,
+                category_id="24",  # Entertainment
+                keywords=tags,
+                privacy_status="public"
+            )
+            
+            if video_id:
+                result['success'] = True
+                result['title'] = headline
+                result['video_id'] = video_id
+                result['file_path'] = rendered_video
+                result['wyr_theme'] = theme_name
+                
+                dest_path = os.path.join(UPLOADED_DIR, os.path.basename(rendered_video))
+                shutil.move(rendered_video, dest_path)
+                print(f"  Moved video to {UPLOADED_DIR}/")
+                
+                # Pin a WYR-themed comment for engagement
+                try:
+                    from uploader import add_pinned_comment
+                    wyr_comments = [
+                        f"I went with {option_a}. Fight me in the comments \U0001F447",
+                        f"Comment A for {option_a} or B for {option_b} \u2014 no middle ground!",
+                        "This one splits EVERYONE. Which side are you on? \U0001F447",
+                        f"Type 1 for {option_a} or 2 for {option_b}. I need to know \U0001F914",
+                        "Send this to a friend and see if they pick the same one \U0001F517",
+                    ]
+                    comment_text = random.choice(wyr_comments)
+                    add_pinned_comment(youtube_client, video_id, comment_text)
+                except Exception as e:
+                    print(f"  \u26A0\uFE0F Could not pin comment: {e}")
+        except Exception as e:
+            print(f"  \u274C Failed to upload video: {e}")
+            print(f"  Your video is saved at {rendered_video}")
+    else:
+        print(f"  \u23ED\uFE0F Skipping upload (no YouTube client)")
+        print(f"  Video saved at: {rendered_video}")
+        result['success'] = True
+        result['title'] = headline
+        result['file_path'] = rendered_video
+        result['wyr_theme'] = theme_name
+    
+    return result
+
+
+def create_fake_text_short(youtube_client=None, history=None, voice=None):
+    """
+    Pipeline for Fake Text Message shorts.
+    
+    Differences from other pipelines:
+    - Uses fake_text_writer.py (AI-generated dramatic chat conversations)
+    - Light gray narration text with standard subtitles
+    - Conversational TTS voice at normal rate
+    - Uploads under category 24 (Entertainment)
+    
+    Returns:
+        dict with 'success', 'title', 'video_id', 'file_path' keys
+    """
+    result = {'success': False, 'title': None, 'video_id': None, 'file_path': None}
+    
+    # 1. Get recently used themes from history
+    used_themes = []
+    if history:
+        for vid in history.get('videos', [])[-30:]:
+            theme = vid.get('ft_theme')
+            if theme:
+                used_themes.append(theme)
+    
+    # 2. Generate Fake Text script via Gemini AI
+    print("\n  \U0001F4F1 Generating Fake Text Message script...")
+    headline, script_text, messages, theme_name = generate_fake_text_script(used_themes)
+    
+    print(f"\n  \U0001F4F0 Headline: {headline}")
+    print(f"  \U0001F4AC Messages: {len(messages)}")
+    print(f"  \U0001F4CF Narration words: {len(script_text.split())}")
+    
+    # 3. Generate Audio (conversational voice)
+    print("  \U0001F3A4 Generating voiceover...")
+    audio_file = os.path.join(TEMP_DIR, "audio.mp3")
+    subs_file = os.path.join(TEMP_DIR, "subs.srt")
+    
+    mp3_path, srt_path = generate_audio_and_subs(
+        script_text, audio_file, subs_file,
+        voice=voice, content_type="fake_text"
+    )
+    
+    if not mp3_path or not srt_path:
+        print("  \u274C Failed to generate audio. Aborting.")
+        return result
+    
+    # 4. Pick background
+    import glob
+    ft_bg_dir = os.path.join(ASSETS_DIR, "fake_text_bg")
+    ft_bg_files = glob.glob(os.path.join(ft_bg_dir, '*.mp4'))
+    
+    if ft_bg_files:
+        bg_video = random.choice(ft_bg_files)
+        print(f"  \U0001F3AC Using Fake Text background: {os.path.basename(bg_video)}")
+    else:
+        bg_video, bg_start = pick_background_segment(needed_duration=50.0)
+        if bg_video is None:
+            bg_video = os.path.join(ASSETS_DIR, "background_small.mp4")
+        print(f"  \u26A0\uFE0F No Fake Text backgrounds found, using: {os.path.basename(bg_video)}")
+    
+    # 5. Assemble Video (fake text style)
+    safe_title = "".join([c for c in headline if c.isalpha() or c.isdigit() or c == ' ']).rstrip()
+    safe_title_underscored = safe_title.replace(" ", "_")[:50]
+    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+    final_video_path = os.path.join(VIDEOS_DIR, f"TXT_{safe_title_underscored}_{timestamp}.mp4")
+    
+    print("  \U0001F3A5 Assembling Fake Text video...")
+    try:
+        rendered_video = create_video(
+            mp3_path, srt_path,
+            background_path=bg_video,
+            output_path=final_video_path,
+            bg_start_time=None,
+            content_type="fake_text",
+            messages=messages
+        )
+    except Exception as e:
+        print(f"  \u274C Error during video generation: {e}")
+        return result
+    
+    # 6. Generate metadata
+    short_title, description, tags = generate_fake_text_metadata(headline, script_text)
+    print(f"  \U0001F4CB Upload title: {short_title}")
+    
+    # 7. Upload to YouTube
+    if youtube_client:
+        print("  \U0001F4E4 Uploading to YouTube...")
+        try:
+            video_id = upload_video(
+                youtube=youtube_client,
+                file_path=rendered_video,
+                title=short_title,
+                description=description,
+                category_id="24",  # Entertainment
+                keywords=tags,
+                privacy_status="public"
+            )
+            
+            if video_id:
+                result['success'] = True
+                result['title'] = headline
+                result['video_id'] = video_id
+                result['file_path'] = rendered_video
+                result['ft_theme'] = theme_name
+                
+                dest_path = os.path.join(UPLOADED_DIR, os.path.basename(rendered_video))
+                shutil.move(rendered_video, dest_path)
+                print(f"  Moved video to {UPLOADED_DIR}/")
+                
+                try:
+                    from uploader import add_pinned_comment
+                    ft_comments = [
+                        "Would YOU have responded? Comment BLOCK or REPLY \U0001F447",
+                        "The AUDACITY. What would your reply be? Drop it below \U0001F447",
+                        "I need to know \u2014 who was wrong here? Comment below \u2B07\uFE0F",
+                        "Screenshot this and send it to your friend who would FLIP \U0001F4F8",
+                        "Has something like this ever happened to YOU? Share your story \U0001F447",
+                    ]
+                    comment_text = random.choice(ft_comments)
+                    add_pinned_comment(youtube_client, video_id, comment_text)
+                except Exception as e:
+                    print(f"  \u26A0\uFE0F Could not pin comment: {e}")
+        except Exception as e:
+            print(f"  \u274C Failed to upload video: {e}")
+            print(f"  Your video is saved at {rendered_video}")
+    else:
+        print(f"  \u23ED\uFE0F Skipping upload (no YouTube client)")
+        print(f"  Video saved at: {rendered_video}")
+        result['success'] = True
+        result['title'] = headline
+        result['file_path'] = rendered_video
+        result['ft_theme'] = theme_name
+    
+    return result
+
+
+def create_dark_psych_short(youtube_client=None, history=None, voice=None):
+    """
+    Pipeline for Dark Psychology / Did You Know shorts.
+    
+    Differences from other pipelines:
+    - Uses dark_psych_writer.py (AI-generated psychology facts)
+    - Red accent text, authoritative style
+    - Slower TTS rate for gravitas
+    - Uploads under category 27 (Education)
+    
+    Returns:
+        dict with 'success', 'title', 'video_id', 'file_path' keys
+    """
+    result = {'success': False, 'title': None, 'video_id': None, 'file_path': None}
+    
+    # 1. Get recently used topics from history
+    used_topics = []
+    if history:
+        for vid in history.get('videos', [])[-30:]:
+            topic = vid.get('psych_topic')
+            if topic:
+                used_topics.append(topic)
+    
+    # 2. Generate Dark Psychology script via Gemini AI
+    print("\n  \U0001F9E0 Generating Dark Psychology script...")
+    headline, script_text, topic_returned, topic_name = generate_dark_psych_script(used_topics)
+    
+    print(f"\n  \U0001F4F0 Headline: {headline}")
+    print(f"  \U0001F9E0 Topic: {topic_returned}")
+    print(f"  \U0001F4CF Words: {len(script_text.split())}")
+    
+    # 3. Generate Audio (deep authoritative voice)
+    print("  \U0001F3A4 Generating voiceover...")
+    audio_file = os.path.join(TEMP_DIR, "audio.mp3")
+    subs_file = os.path.join(TEMP_DIR, "subs.srt")
+    
+    mp3_path, srt_path = generate_audio_and_subs(
+        script_text, audio_file, subs_file,
+        voice=voice, content_type="dark_psychology"
+    )
+    
+    if not mp3_path or not srt_path:
+        print("  \u274C Failed to generate audio. Aborting.")
+        return result
+    
+    # 4. Pick background
+    import glob
+    dp_bg_dir = os.path.join(ASSETS_DIR, "dark_psych_bg")
+    dp_bg_files = glob.glob(os.path.join(dp_bg_dir, '*.mp4'))
+    
+    if dp_bg_files:
+        bg_video = random.choice(dp_bg_files)
+        print(f"  \U0001F3AC Using Dark Psychology background: {os.path.basename(bg_video)}")
+    else:
+        bg_video, bg_start = pick_background_segment(needed_duration=50.0)
+        if bg_video is None:
+            bg_video = os.path.join(ASSETS_DIR, "background_small.mp4")
+        print(f"  \u26A0\uFE0F No Dark Psychology backgrounds found, using: {os.path.basename(bg_video)}")
+    
+    # 5. Assemble Video (dark psychology style: red text, authoritative)
+    safe_title = "".join([c for c in headline if c.isalpha() or c.isdigit() or c == ' ']).rstrip()
+    safe_title_underscored = safe_title.replace(" ", "_")[:50]
+    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+    final_video_path = os.path.join(VIDEOS_DIR, f"PSYCH_{safe_title_underscored}_{timestamp}.mp4")
+    
+    print("  \U0001F3A5 Assembling Dark Psychology video...")
+    try:
+        rendered_video = create_video(
+            mp3_path, srt_path,
+            background_path=bg_video,
+            output_path=final_video_path,
+            bg_start_time=None,
+            content_type="dark_psychology"
+        )
+    except Exception as e:
+        print(f"  \u274C Error during video generation: {e}")
+        return result
+    
+    # 6. Generate metadata
+    short_title, description, tags = generate_dark_psych_metadata(headline, script_text, topic_returned)
+    print(f"  \U0001F4CB Upload title: {short_title}")
+    
+    # 7. Upload to YouTube
+    if youtube_client:
+        print("  \U0001F4E4 Uploading to YouTube...")
+        try:
+            video_id = upload_video(
+                youtube=youtube_client,
+                file_path=rendered_video,
+                title=short_title,
+                description=description,
+                category_id="27",  # Education
+                keywords=tags,
+                privacy_status="public"
+            )
+            
+            if video_id:
+                result['success'] = True
+                result['title'] = headline
+                result['video_id'] = video_id
+                result['file_path'] = rendered_video
+                result['psych_topic'] = topic_name
+                
+                dest_path = os.path.join(UPLOADED_DIR, os.path.basename(rendered_video))
+                shutil.move(rendered_video, dest_path)
+                print(f"  Moved video to {UPLOADED_DIR}/")
+                
+                try:
+                    from uploader import add_pinned_comment
+                    psych_comments = [
+                        f"\U0001F9E0 Have you ever experienced {topic_returned}? Share your story below.",
+                        "Save this for when someone tries to manipulate you \U0001F4CC",
+                        "Tag someone who NEEDS to see this \U0001F517",
+                        "Comment YES if you've seen someone do this to you \U0001F447",
+                        "The scariest part? Most people never realize it's happening to them.",
+                    ]
+                    comment_text = random.choice(psych_comments)
+                    add_pinned_comment(youtube_client, video_id, comment_text)
+                except Exception as e:
+                    print(f"  \u26A0\uFE0F Could not pin comment: {e}")
+        except Exception as e:
+            print(f"  \u274C Failed to upload video: {e}")
+            print(f"  Your video is saved at {rendered_video}")
+    else:
+        print(f"  \u23ED\uFE0F Skipping upload (no YouTube client)")
+        print(f"  Video saved at: {rendered_video}")
+        result['success'] = True
+        result['title'] = headline
+        result['file_path'] = rendered_video
+        result['psych_topic'] = topic_name
+    
+    return result
+
+
+def create_true_crime_short(youtube_client=None, history=None, voice=None):
+    """
+    Pipeline for True Crime / Scary Story shorts.
+    
+    Differences from other pipelines:
+    - Uses true_crime_writer.py (Reddit horror subs + AI-generated horror)
+    - Pale gray text, minimal animation, static dread
+    - Slow eerie TTS voice
+    - Uploads under category 24 (Entertainment)
+    
+    Returns:
+        dict with 'success', 'title', 'video_id', 'file_path' keys
+    """
+    result = {'success': False, 'title': None, 'video_id': None, 'file_path': None}
+    
+    # 1. Get recently used topics from history
+    used_topics = []
+    if history:
+        for vid in history.get('videos', [])[-30:]:
+            topic = vid.get('horror_topic')
+            if topic:
+                used_topics.append(topic)
+    
+    # 2. Generate True Crime script (scrape Reddit or AI-generate)
+    print("\n  \U0001F480 Generating True Crime / Scary Story script...")
+    headline, script_text, source_sub, theme_name = generate_true_crime_script(used_topics)
+    
+    print(f"\n  \U0001F4F0 Headline: {headline}")
+    print(f"  \U0001F47B Source: {source_sub}")
+    print(f"  \U0001F4CF Words: {len(script_text.split())}")
+    
+    # 3. Generate Audio (eerie voice, slow rate)
+    print("  \U0001F3A4 Generating voiceover...")
+    audio_file = os.path.join(TEMP_DIR, "audio.mp3")
+    subs_file = os.path.join(TEMP_DIR, "subs.srt")
+    
+    mp3_path, srt_path = generate_audio_and_subs(
+        script_text, audio_file, subs_file,
+        voice=voice, content_type="true_crime"
+    )
+    
+    if not mp3_path or not srt_path:
+        print("  \u274C Failed to generate audio. Aborting.")
+        return result
+    
+    # 4. Pick background
+    import glob
+    tc_bg_dir = os.path.join(ASSETS_DIR, "true_crime_bg")
+    tc_bg_files = glob.glob(os.path.join(tc_bg_dir, '*.mp4'))
+    
+    if tc_bg_files:
+        bg_video = random.choice(tc_bg_files)
+        print(f"  \U0001F3AC Using True Crime background: {os.path.basename(bg_video)}")
+    else:
+        bg_video, bg_start = pick_background_segment(needed_duration=50.0)
+        if bg_video is None:
+            bg_video = os.path.join(ASSETS_DIR, "background_small.mp4")
+        print(f"  \u26A0\uFE0F No True Crime backgrounds found, using: {os.path.basename(bg_video)}")
+    
+    # 5. Assemble Video (true crime style: pale gray, minimal animation)
+    safe_title = "".join([c for c in headline if c.isalpha() or c.isdigit() or c == ' ']).rstrip()
+    safe_title_underscored = safe_title.replace(" ", "_")[:50]
+    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+    final_video_path = os.path.join(VIDEOS_DIR, f"HORROR_{safe_title_underscored}_{timestamp}.mp4")
+    
+    print("  \U0001F3A5 Assembling True Crime video...")
+    try:
+        rendered_video = create_video(
+            mp3_path, srt_path,
+            background_path=bg_video,
+            output_path=final_video_path,
+            bg_start_time=None,
+            content_type="true_crime"
+        )
+    except Exception as e:
+        print(f"  \u274C Error during video generation: {e}")
+        return result
+    
+    # 6. Generate metadata
+    short_title, description, tags = generate_true_crime_metadata(headline, script_text, source_sub)
+    print(f"  \U0001F4CB Upload title: {short_title}")
+    
+    # 7. Upload to YouTube
+    if youtube_client:
+        print("  \U0001F4E4 Uploading to YouTube...")
+        try:
+            video_id = upload_video(
+                youtube=youtube_client,
+                file_path=rendered_video,
+                title=short_title,
+                description=description,
+                category_id="24",  # Entertainment
+                keywords=tags,
+                privacy_status="public"
+            )
+            
+            if video_id:
+                result['success'] = True
+                result['title'] = headline
+                result['video_id'] = video_id
+                result['file_path'] = rendered_video
+                result['horror_topic'] = theme_name
+                
+                dest_path = os.path.join(UPLOADED_DIR, os.path.basename(rendered_video))
+                shutil.move(rendered_video, dest_path)
+                print(f"  Moved video to {UPLOADED_DIR}/")
+                
+                try:
+                    from uploader import add_pinned_comment
+                    horror_comments = [
+                        "Don't read these comments at night... \U0001F480 Has anything like this happened to YOU?",
+                        "I still can't sleep after writing this one. What's YOUR scariest experience? \U0001F447",
+                        "Type SCARED if this gave you chills \U0001F631",
+                        "Watch this again. You missed something the first time... \U0001F440",
+                        "The scariest part? This could happen to anyone. Even you. \U0001F47B",
+                    ]
+                    comment_text = random.choice(horror_comments)
+                    add_pinned_comment(youtube_client, video_id, comment_text)
+                except Exception as e:
+                    print(f"  \u26A0\uFE0F Could not pin comment: {e}")
+        except Exception as e:
+            print(f"  \u274C Failed to upload video: {e}")
+            print(f"  Your video is saved at {rendered_video}")
+    else:
+        print(f"  \u23ED\uFE0F Skipping upload (no YouTube client)")
+        print(f"  Video saved at: {rendered_video}")
+        result['success'] = True
+        result['title'] = headline
+        result['file_path'] = rendered_video
+        result['horror_topic'] = theme_name
+    
+    return result
+
+
 def run_pipeline():
     """
     Main entry point: generates and uploads multiple viral shorts.
@@ -584,8 +1279,8 @@ def run_pipeline():
                         help="Path to a text file containing a custom raw Reddit story (first line = title, rest = body) for test generation.")
     parser.add_argument("--schedule", type=str, choices=["morning", "afternoon", "evening"], default=None,
                         help="Wait until target time before uploading (morning=10AM, afternoon=2PM, evening=7PM)")
-    parser.add_argument("--content-type", type=str, choices=["story", "inspiration"], default="story",
-                        help="Content type: 'story' (Reddit drama) or 'inspiration' (Dark Stoic motivational)")
+    parser.add_argument("--content-type", type=str, choices=["story", "inspiration", "would_you_rather", "fake_text", "dark_psychology", "true_crime"], default="story",
+                        help="Content type to generate")
 
     args, unknown = parser.parse_known_args()
 
@@ -789,6 +1484,30 @@ def run_pipeline():
                 history=history,
                 voice=args.voice
             )
+        elif content_type == "would_you_rather":
+            result = create_wyr_short(
+                youtube_client=youtube_client,
+                history=history,
+                voice=args.voice
+            )
+        elif content_type == "fake_text":
+            result = create_fake_text_short(
+                youtube_client=youtube_client,
+                history=history,
+                voice=args.voice
+            )
+        elif content_type == "dark_psychology":
+            result = create_dark_psych_short(
+                youtube_client=youtube_client,
+                history=history,
+                voice=args.voice
+            )
+        elif content_type == "true_crime":
+            result = create_true_crime_short(
+                youtube_client=youtube_client,
+                history=history,
+                voice=args.voice
+            )
         else:
             result = create_and_upload_viral_short(
                 youtube_client=youtube_client, 
@@ -808,12 +1527,20 @@ def run_pipeline():
                 "file": result.get('file_path'),
                 "content_type": content_type,
             }
-            # Track Stoic theme for inspiration videos (prevents repetition)
+            # Track themes for the different content types
             if result.get('stoic_theme'):
                 video_record["stoic_theme"] = result['stoic_theme']
+            if result.get('wyr_theme'):
+                video_record["wyr_theme"] = result['wyr_theme']
+            if result.get('ft_theme'):
+                video_record["ft_theme"] = result['ft_theme']
+            if result.get('psych_topic'):
+                video_record["psych_topic"] = result['psych_topic']
+            if result.get('horror_topic'):
+                video_record["horror_topic"] = result['horror_topic']
+                
             history["videos"].append(video_record)
             save_upload_history(history)
-            
             if result.get('video_id'):
                 print(f"\n  💡 PRO TIP: Go to YouTube Studio and link a 'Related Video' to {result.get('video_id')}!")
                 print(f"     This is the best way to convert Shorts viewers into long-form subscribers.")

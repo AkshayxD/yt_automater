@@ -35,6 +35,38 @@ TTS_RATE = "+10%"
 # Slower rate for inspiration — deliberate, contemplative pacing
 INSPIRATION_TTS_RATE = "+5%"
 
+# Would You Rather — energetic, engaging voices
+WYR_VOICE_POOL = [
+    ("en-US-AriaNeural", "Energetic female — quiz show host feel"),
+    ("en-US-GuyNeural", "Upbeat conversational male"),
+    ("en-US-JennyNeural", "Warm friendly narrator"),
+]
+WYR_TTS_RATE = "+15%"  # Faster = more energy
+
+# Fake Text — conversational, casual voices
+FAKE_TEXT_VOICE_POOL = [
+    ("en-US-JennyNeural", "Casual female storyteller"),
+    ("en-US-AriaNeural", "Expressive dramatic female"),
+    ("en-US-GuyNeural", "Casual male narrator"),
+]
+FAKE_TEXT_TTS_RATE = "+10%"
+
+# Dark Psychology — authoritative, mysterious voices
+DARK_PSYCH_VOICE_POOL = [
+    ("en-US-ChristopherNeural", "Deep authoritative — professor feel"),
+    ("en-GB-RyanNeural", "British authority — intellectual"),
+    ("en-US-GuyNeural", "Calm knowledgeable male"),
+]
+DARK_PSYCH_TTS_RATE = "+5%"  # Slower = more gravitas
+
+# True Crime — eerie, whispery voices at slow pace
+TRUE_CRIME_VOICE_POOL = [
+    ("en-US-ChristopherNeural", "Deep ominous narrator"),
+    ("en-GB-RyanNeural", "British suspense — documentary feel"),
+    ("en-US-GuyNeural", "Low calm male — unsettling"),
+]
+TRUE_CRIME_TTS_RATE = "+0%"  # Slowest = maximum dread
+
 
 async def _generate(text, output_mp3, output_srt, voice, rate):
     """
@@ -75,7 +107,8 @@ def generate_audio_and_subs(text, output_mp3="temp/audio.mp3", output_srt="temp/
         output_mp3: Path to save the audio file.
         output_srt: Path to save the SRT subtitle file (word-level).
         voice: Optional specific voice name. If None, picks randomly from pool.
-        content_type: 'story' or 'inspiration' — selects voice pool and TTS rate.
+        content_type: 'story', 'inspiration', 'would_you_rather', 'fake_text',
+                      'dark_psychology', or 'true_crime' — selects voice pool and TTS rate.
 
     Returns:
         Tuple of (mp3_path, srt_path) or (None, None) on failure.
@@ -89,6 +122,18 @@ def generate_audio_and_subs(text, output_mp3="temp/audio.mp3", output_srt="temp/
     if content_type == "inspiration":
         pool = INSPIRATION_VOICE_POOL
         rate = INSPIRATION_TTS_RATE
+    elif content_type == "would_you_rather":
+        pool = WYR_VOICE_POOL
+        rate = WYR_TTS_RATE
+    elif content_type == "fake_text":
+        pool = FAKE_TEXT_VOICE_POOL
+        rate = FAKE_TEXT_TTS_RATE
+    elif content_type == "dark_psychology":
+        pool = DARK_PSYCH_VOICE_POOL
+        rate = DARK_PSYCH_TTS_RATE
+    elif content_type == "true_crime":
+        pool = TRUE_CRIME_VOICE_POOL
+        rate = TRUE_CRIME_TTS_RATE
     else:
         pool = VOICE_POOL
         rate = TTS_RATE
