@@ -779,9 +779,9 @@ def run_pipeline():
     # Generate and upload videos
     successful = 0
     for i in range(args.num):
-        print(f"\n{'\u2500' * 60}")
+        print("\n" + "\u2500" * 60)
         print(f"\U0001F4F9 VIDEO {i + 1} of {args.num} ({content_type.upper()})")
-        print(f"{'\u2500' * 60}")
+        print("\u2500" * 60)
 
         if content_type == "inspiration":
             result = create_inspirational_short(
