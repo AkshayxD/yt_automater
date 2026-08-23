@@ -24,6 +24,28 @@ assets/*
 !assets/fonts/
 !assets/fonts/*
 
+# Allow custom content asset directories
+!assets/number_facts_bg/
+!assets/number_facts_bg/*
+!assets/history_bg/
+!assets/history_bg/*
+!assets/wyr_bg/
+!assets/wyr_bg/*
+!assets/fake_text_bg/
+!assets/fake_text_bg/*
+!assets/dark_psych_bg/
+!assets/dark_psych_bg/*
+!assets/true_crime_bg/
+!assets/true_crime_bg/*
+!assets/inspiration_bg/
+!assets/inspiration_bg/*
+!assets/true_crime_music/
+!assets/true_crime_music/*
+!assets/music/
+!assets/music/*
+!assets/inspiration_music/
+!assets/inspiration_music/*
+
 # Test artifacts
 test_caption.png
 test_no_stroke.png
