@@ -22,6 +22,8 @@ from wyr_writer import generate_wyr_script
 from fake_text_writer import generate_fake_text_script
 from dark_psych_writer import generate_dark_psych_script
 from true_crime_writer import generate_true_crime_script
+from number_facts_writer import generate_number_fact_script
+from history_writer import generate_history_script
 from background_manager import pick_background_segment, record_used_segment
 
 # --- Directories ---
@@ -386,7 +388,73 @@ def generate_true_crime_metadata(headline, script_text, source_sub):
     
     all_tags = base_tags + topic_tags
     all_tags = all_tags[:10]
-    
+
+    return short_title, description, all_tags
+
+
+def generate_number_facts_metadata(headline, script_text, key_number):
+    """
+    Generates SEO-optimized metadata for Number Facts shorts.
+    """
+    short_title = headline.strip().strip('"').strip("'").strip()
+    if len(short_title) > 50:
+        short_title = short_title[:47]
+        last_space = short_title.rfind(' ')
+        if last_space > 25:
+            short_title = short_title[:last_space]
+        short_title += "..."
+
+    first_sentence = script_text.split('.')[0].strip() if script_text else ""
+    if len(first_sentence) > 120:
+        first_sentence = first_sentence[:117] + "..."
+
+    description = (
+        f"{first_sentence}\n\n"
+        f"#Shorts #NumberFacts #MindBlow #DidYouKnow #StatsFacts\n\n"
+        f"Key metric: {key_number} 😲\n"
+        f"Follow for daily mind-bending facts! 🔔\n\n"
+        f"---\n"
+        f"#MathFacts #Science #Probability #IncomprehensibleScale"
+    )
+
+    base_tags = ["shorts", "number facts", "mind blow", "did you know", "stats facts"]
+    topic_tags = ["math facts", "science facts", "probability", "scale facts", "crazy math", "mind blowing"]
+    all_tags = base_tags + topic_tags
+    all_tags = all_tags[:10]
+
+    return short_title, description, all_tags
+
+
+def generate_history_metadata(headline, script_text, year):
+    """
+    Generates SEO-optimized metadata for Historical Facts shorts.
+    """
+    short_title = headline.strip().strip('"').strip("'").strip()
+    if len(short_title) > 50:
+        short_title = short_title[:47]
+        last_space = short_title.rfind(' ')
+        if last_space > 25:
+            short_title = short_title[:last_space]
+        short_title += "..."
+
+    first_sentence = script_text.split('.')[0].strip() if script_text else ""
+    if len(first_sentence) > 120:
+        first_sentence = first_sentence[:117] + "..."
+
+    description = (
+        f"{first_sentence}\n\n"
+        f"#Shorts #History #HistoricalFacts #OnThisDay #HistoryStories\n\n"
+        f"Year: {year} 🏛️\n"
+        f"Follow for daily history lessons! 🔔\n\n"
+        f"---\n"
+        f"#DidYouKnow #WorldHistory #TodayInHistory #EpicMoments"
+    )
+
+    base_tags = ["shorts", "history", "historical facts", "on this day", "historytime"]
+    topic_tags = [f"history {year}", "world history", "today in history", "history facts", "historical events", "did you know"]
+    all_tags = base_tags + topic_tags
+    all_tags = all_tags[:10]
+
     return short_title, description, all_tags
 
 
@@ -1248,6 +1316,268 @@ def create_true_crime_short(youtube_client=None, history=None, voice=None):
     return result
 
 
+def create_number_facts_short(youtube_client=None, history=None, voice=None):
+    """
+    Pipeline for Number Facts shorts.
+
+    Returns:
+        dict with 'success', 'title', 'video_id', 'file_path' keys
+    """
+    result = {'success': False, 'title': None, 'video_id': None, 'file_path': None}
+
+    # 1. Get recently used themes
+    used_themes = []
+    if history:
+        for vid in history.get('videos', [])[-30:]:
+            theme = vid.get('number_theme')
+            if theme:
+                used_themes.append(theme)
+
+    # 2. Generate number fact script
+    print("\n  🔢 Generating Number Fact...")
+    headline, script_text, key_number, theme_name = generate_number_fact_script(used_themes)
+
+    print(f"\n  📰 Headline: {headline}")
+    print(f"  🔢 Key Number: {key_number}")
+    print(f"  📝 Words: {len(script_text.split())}")
+
+    # 3. Generate Audio
+    print("  🎤 Generating voiceover...")
+    audio_file = os.path.join(TEMP_DIR, "audio.mp3")
+    subs_file = os.path.join(TEMP_DIR, "subs.srt")
+
+    mp3_path, srt_path = generate_audio_and_subs(
+        script_text, audio_file, subs_file,
+        voice=voice, content_type="story"
+    )
+
+    if not mp3_path or not srt_path:
+        print("  ❌ Failed to generate audio. Aborting.")
+        return result
+
+    # 4. Pick space/galaxy background
+    import glob
+    nf_bg_dir = os.path.join(ASSETS_DIR, "number_facts_bg")
+    nf_bg_files = glob.glob(os.path.join(nf_bg_dir, '*.mp4'))
+
+    if nf_bg_files:
+        bg_video = random.choice(nf_bg_files)
+        print(f"  🎬 Using Number Facts background: {os.path.basename(bg_video)}")
+    else:
+        bg_video, bg_start = pick_background_segment(needed_duration=30.0)
+        if bg_video is None:
+            bg_video = os.path.join(ASSETS_DIR, "background_small.mp4")
+        print(f"  ⚠️ No Number Facts backgrounds found, using: {os.path.basename(bg_video)}")
+
+    # 5. Assemble Video
+    safe_title = "".join([c for c in headline if c.isalpha() or c.isdigit() or c == ' ']).rstrip()
+    safe_title_underscored = safe_title.replace(" ", "_")[:50]
+    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+    final_video_path = os.path.join(VIDEOS_DIR, f"NUM_{safe_title_underscored}_{timestamp}.mp4")
+
+    print("  🎥 Assembling Number Facts video...")
+    try:
+        rendered_video = create_video(
+            mp3_path, srt_path,
+            background_path=bg_video,
+            output_path=final_video_path,
+            bg_start_time=None,
+            content_type="story"
+        )
+    except Exception as e:
+        print(f"  ❌ Error during video generation: {e}")
+        return result
+
+    # 6. Generate metadata
+    short_title, description, tags = generate_number_facts_metadata(headline, script_text, key_number)
+    print(f"  📋 Upload title: {short_title}")
+
+    # 7. Upload to YouTube
+    if youtube_client:
+        print("  📤 Uploading to YouTube...")
+        try:
+            video_id = upload_video(
+                youtube=youtube_client,
+                file_path=rendered_video,
+                title=short_title,
+                description=description,
+                category_id="27",
+                keywords=tags,
+                privacy_status="public"
+            )
+
+            if video_id:
+                result['success'] = True
+                result['title'] = headline
+                result['video_id'] = video_id
+                result['file_path'] = rendered_video
+                result['number_theme'] = theme_name
+
+                dest_path = os.path.join(UPLOADED_DIR, os.path.basename(rendered_video))
+                shutil.move(rendered_video, dest_path)
+                print(f"  Moved video to {UPLOADED_DIR}/")
+
+                try:
+                    from uploader import add_pinned_comment
+                    nf_comments = [
+                        f"Drop a 🤯 if this broke your brain. The math is real.",
+                        "Your brain physically cannot comprehend this scale. Try anyway. 🧠",
+                        f"Fun fact: {key_number} is just the beginning. Want more? Hit follow.",
+                        "Save this for the next time someone says 'infinity isn't that big' 📌",
+                        "Comment MINDBLOWN if you had to read this twice 🤯",
+                    ]
+                    comment_text = random.choice(nf_comments)
+                    add_pinned_comment(youtube_client, video_id, comment_text)
+                except Exception as e:
+                    print(f"  ⚠️ Could not pin comment: {e}")
+        except Exception as e:
+            print(f"  ❌ Failed to upload video: {e}")
+            print(f"  Your video is saved at {rendered_video}")
+    else:
+        print(f"  ⏭️ Skipping upload (no YouTube client)")
+        print(f"  Video saved at: {rendered_video}")
+        result['success'] = True
+        result['title'] = headline
+        result['file_path'] = rendered_video
+        result['number_theme'] = theme_name
+
+    return result
+
+
+def create_history_short(youtube_client=None, history=None, voice=None):
+    """
+    Pipeline for Historical "On This Day" shorts.
+
+    Returns:
+        dict with 'success', 'title', 'video_id', 'file_path' keys
+    """
+    result = {'success': False, 'title': None, 'video_id': None, 'file_path': None}
+
+    # 1. Get recently used themes
+    used_themes = []
+    if history:
+        for vid in history.get('videos', [])[-30:]:
+            theme = vid.get('history_theme')
+            if theme:
+                used_themes.append(theme)
+
+    # 2. Generate history script (scrapes Wikipedia)
+    print("\n  🏛️ Generating Historical Fact...")
+    headline, script_text, image_path, year, theme_id = generate_history_script(used_themes)
+
+    print(f"\n  📰 Headline: {headline}")
+    print(f"  📅 Year: {year}")
+    print(f"  📝 Words: {len(script_text.split())}")
+    if image_path:
+        print(f"  📸 Image: {image_path}")
+
+    # 3. Generate Audio
+    print("  🎤 Generating voiceover...")
+    audio_file = os.path.join(TEMP_DIR, "audio.mp3")
+    subs_file = os.path.join(TEMP_DIR, "subs.srt")
+
+    mp3_path, srt_path = generate_audio_and_subs(
+        script_text, audio_file, subs_file,
+        voice=voice, content_type="story"
+    )
+
+    if not mp3_path or not srt_path:
+        print("  ❌ Failed to generate audio. Aborting.")
+        return result
+
+    # 4. Use historical image as background if available, else pick from pool
+    if image_path and os.path.exists(image_path):
+        bg_video = image_path
+        print(f"  🎬 Using historical image: {os.path.basename(bg_video)}")
+    else:
+        import glob
+        hist_bg_dir = os.path.join(ASSETS_DIR, "history_bg")
+        hist_bg_files = glob.glob(os.path.join(hist_bg_dir, '*.mp4'))
+
+        if hist_bg_files:
+            bg_video = random.choice(hist_bg_files)
+            print(f"  🎬 Using history background: {os.path.basename(bg_video)}")
+        else:
+            bg_video, bg_start = pick_background_segment(needed_duration=50.0)
+            if bg_video is None:
+                bg_video = os.path.join(ASSETS_DIR, "background_small.mp4")
+            print(f"  ⚠️ No history backgrounds found, using: {os.path.basename(bg_video)}")
+
+    # 5. Assemble Video
+    safe_title = "".join([c for c in headline if c.isalpha() or c.isdigit() or c == ' ']).rstrip()
+    safe_title_underscored = safe_title.replace(" ", "_")[:50]
+    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+    final_video_path = os.path.join(VIDEOS_DIR, f"HIST_{safe_title_underscored}_{timestamp}.mp4")
+
+    print("  🎥 Assembling History video...")
+    try:
+        rendered_video = create_video(
+            mp3_path, srt_path,
+            background_path=bg_video,
+            output_path=final_video_path,
+            bg_start_time=None,
+            content_type="story"
+        )
+    except Exception as e:
+        print(f"  ❌ Error during video generation: {e}")
+        return result
+
+    # 6. Generate metadata
+    short_title, description, tags = generate_history_metadata(headline, script_text, year)
+    print(f"  📋 Upload title: {short_title}")
+
+    # 7. Upload to YouTube
+    if youtube_client:
+        print("  📤 Uploading to YouTube...")
+        try:
+            video_id = upload_video(
+                youtube=youtube_client,
+                file_path=rendered_video,
+                title=short_title,
+                description=description,
+                category_id="27",
+                keywords=tags,
+                privacy_status="public"
+            )
+
+            if video_id:
+                result['success'] = True
+                result['title'] = headline
+                result['video_id'] = video_id
+                result['file_path'] = rendered_video
+                result['history_theme'] = theme_id
+
+                dest_path = os.path.join(UPLOADED_DIR, os.path.basename(rendered_video))
+                shutil.move(rendered_video, dest_path)
+                print(f"  Moved video to {UPLOADED_DIR}/")
+
+                try:
+                    from uploader import add_pinned_comment
+                    hist_comments = [
+                        f"On this day in {year}, history changed forever. What year are YOU from? Drop it below 👇",
+                        f"Rate this historical moment 1-10 in the comments 🏛️",
+                        "This is why history class matters. Follow for daily lessons 📚",
+                        f"Would you have survived {year}? Be honest in the comments 💀",
+                        "Share this with someone who loves history 🔗",
+                    ]
+                    comment_text = random.choice(hist_comments)
+                    add_pinned_comment(youtube_client, video_id, comment_text)
+                except Exception as e:
+                    print(f"  ⚠️ Could not pin comment: {e}")
+        except Exception as e:
+            print(f"  ❌ Failed to upload video: {e}")
+            print(f"  Your video is saved at {rendered_video}")
+    else:
+        print(f"  ⏭️ Skipping upload (no YouTube client)")
+        print(f"  Video saved at: {rendered_video}")
+        result['success'] = True
+        result['title'] = headline
+        result['file_path'] = rendered_video
+        result['history_theme'] = theme_id
+
+    return result
+
+
 def run_pipeline():
     """
     Main entry point: generates and uploads multiple viral shorts.
@@ -1279,7 +1609,7 @@ def run_pipeline():
                         help="Path to a text file containing a custom raw Reddit story (first line = title, rest = body) for test generation.")
     parser.add_argument("--schedule", type=str, choices=["morning", "afternoon", "evening"], default=None,
                         help="Wait until target time before uploading (morning=10AM, afternoon=2PM, evening=7PM)")
-    parser.add_argument("--content-type", type=str, choices=["story", "inspiration", "would_you_rather", "fake_text", "dark_psychology", "true_crime"], default="story",
+    parser.add_argument("--content-type", type=str, choices=["story", "inspiration", "would_you_rather", "fake_text", "dark_psychology", "true_crime", "number_facts", "history"], default="story",
                         help="Content type to generate")
 
     args, unknown = parser.parse_known_args()
@@ -1508,9 +1838,21 @@ def run_pipeline():
                 history=history,
                 voice=args.voice
             )
+        elif content_type == "number_facts":
+            result = create_number_facts_short(
+                youtube_client=youtube_client,
+                history=history,
+                voice=args.voice
+            )
+        elif content_type == "history":
+            result = create_history_short(
+                youtube_client=youtube_client,
+                history=history,
+                voice=args.voice
+            )
         else:
             result = create_and_upload_viral_short(
-                youtube_client=youtube_client, 
+                youtube_client=youtube_client,
                 history=history,
                 voice=args.voice,
                 background_path=args.background
@@ -1538,6 +1880,10 @@ def run_pipeline():
                 video_record["psych_topic"] = result['psych_topic']
             if result.get('horror_topic'):
                 video_record["horror_topic"] = result['horror_topic']
+            if result.get('number_theme'):
+                video_record["number_theme"] = result['number_theme']
+            if result.get('history_theme'):
+                video_record["history_theme"] = result['history_theme']
                 
             history["videos"].append(video_record)
             save_upload_history(history)

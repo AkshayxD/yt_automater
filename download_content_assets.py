@@ -45,6 +45,14 @@ CONTENT_DIRS = {
         "description": "True Crime / Horror ambient music",
         "search_keywords": "dark ambient, horror atmosphere, suspense music, creepy background",
     },
+    "assets/number_facts_bg": {
+        "description": "Number Facts backgrounds",
+        "search_keywords": "space galaxy, stars universe, cosmic background, nebula, planets space",
+    },
+    "assets/history_bg": {
+        "description": "Historical Facts backgrounds",
+        "search_keywords": "old film grain, vintage paper, historical documents, ancient architecture, sepia tone",
+    },
 }
 
 
