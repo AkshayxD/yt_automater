@@ -28,9 +28,13 @@ SYSTEM_PROMPT = """You are the #1 viral YouTube Shorts scriptwriter. Your script
 YOUR ONLY GOAL: The viewer must feel something INSTANTLY and be unable to stop watching.
 
 THE PERFECT SCRIPT STRUCTURE:
-1. HOOK — first 1 sentence ONLY. Drop directly into the most dramatic moment. The first word must be a shock word or action verb. NEVER start with "I", "My", "So", or "Today". Good openers: "She sold my car while I was sleeping.", "My boss just fired me — by accident.", "The text I sent to the wrong person ended my marriage."
+1. HOOK — CRITICAL: The FIRST WORD must be a dramatic verb, object, or name. NEVER "I", "My", "So", "Today", "This", "There", or "When". NO EXCEPTIONS.
+   Examples of GOOD first words: "She", "Karen", "The text", "My boss", "He", "They", "Her scream", "Blood", "Everything"
+   Examples of GOOD hooks: "She sold my car while I was sleeping.", "Karen fired me by accident.", "The text destroyed my marriage.", "My boss called me at 3 AM."
+   Examples of BAD hooks (NEVER DO THIS): "I sent a text", "My life changed", "So this happened", "Today I discovered"
+   The hook must drop directly into the most dramatic moment in 1 sentence ONLY.
 2. SETUP (2-3 sentences): Briefly explain who the people are and what happened. The viewer knows NOTHING. Be crystal clear. Use names or clear roles ("my landlord", "my sister's boyfriend").
-3. ESCALATION (3-4 sentences): Build tension fast. Show the conflict. Make the viewer feel the unfairness, audacity, or stupidity.
+3. ESCALATION (2-3 sentences): Build tension fast. Show the conflict. Make the viewer feel the unfairness, audacity, or stupidity.
 4. PART 1 CLIFFHANGER (If story is long): If the story requires a Part 2, end Part 1 abruptly at peak tension and say: "Part 2 is on my profile."
 5. COMMENT BAIT ENDING (For the final part): The LAST sentence of the final part must be an open question that forces the viewer to comment. Rotate between styles like: "Was I right? Tell me below.", "Comment KARMA if they deserved it.", "Rate this 1 to 10.", "Would YOU have done the same?", "Who was the real problem here?" No resolution.
 
@@ -41,7 +45,7 @@ CRITICAL RULES FOR AUTHENTICITY:
 4. WRITE LIKE A PERSON TALKING: Use contractions ("I'm", "didn't", "she's"). Use natural filler phrases sparingly.
 5. PROPER APOSTROPHES: Always write "I'm" not "im", "don't" not "dont". The TTS voice will butcher missing apostrophes.
 6. SHORT SENTENCES: Maximum 15 words per sentence for punchy delivery. Mix short and medium sentences.
-7. LENGTH: 130-150 words EXACTLY. Long enough to set up the story properly, short enough for 60 seconds.
+7. LENGTH: 80-100 words EXACTLY. Shorts under 45 seconds get 3x higher completion rate. Be ruthlessly concise.
 8. CLARITY FIRST: If the Reddit story is confusing or long, distill it into something anyone can follow in 60 seconds.
 9. AUDIO ONLY: No brackets, no stage directions, no emojis, no markdown."""
 
@@ -52,8 +56,8 @@ The viewer has NO context. The first word of the script must be a shock word or 
 Respond ONLY with a valid JSON object in this exact format:
 {{
   "headline": "A punchy ALL CAPS confession-style title (5-9 words). Examples: 'I REPORTED MY OWN BOSS TO HR', 'SHE SOLD MY CAR WHILE I WAS ASLEEP'",
-  "script": "Part 1 (100-115 words). Starts dramatic. Builds tension. If there is a Part 2, end abruptly with 'Part 2 is on my profile.' If no Part 2, end with the comment-bait question.",
-  "script_part2": "(Optional) Part 2 (100-115 words). ONLY include if the original story is too long to fit in 115 words. Starts with a 1-sentence recap. Ends with the comment-bait question."
+  "script": "Part 1 (80-100 words). Starts dramatic. Builds tension. If there is a Part 2, end abruptly with 'Part 2 is on my profile.' If no Part 2, end with the comment-bait question.",
+  "script_part2": "(Optional) Part 2 (80-100 words). ONLY include if the original story is too long to fit in 100 words. Starts with a 1-sentence recap. Ends with the comment-bait question."
 }}
 
 Original Reddit title: {title}
@@ -62,7 +66,78 @@ Original Reddit story:
 {body}"""
 
 
+# Viral hook patterns — used to validate and fix weak AI-generated hooks
+BANNED_FIRST_WORDS = ["i", "my", "so", "today", "this", "there", "when", "once", "recently", "yesterday"]
+STRONG_HOOK_WORDS = ["betrayed", "fired", "caught", "destroyed", "exposed", "ruined", "sold", "stole",
+                     "screamed", "demanded", "called", "texted", "sued", "reported", "banned", "blocked"]
+
+
+def validate_and_fix_hook(script):
+    """
+    Validates that the script starts with a strong hook.
+    If the first word is weak (I, My, So, etc.), attempts to restructure it.
+
+    Returns: (fixed_script, is_valid)
+    """
+    if not script:
+        return script, False
+
+    first_word = script.split()[0].lower().strip('.,!?"\'')
+
+    # Check if it starts with a banned word
+    if first_word in BANNED_FIRST_WORDS:
+        print(f"  ⚠️ Weak hook detected: starts with '{first_word}'")
+
+        # Attempt programmatic fix
+        words = script.split()
+
+        # Pattern: "My [noun] [verb]..." -> "[Noun] [verb]..."
+        if first_word == "my" and len(words) > 2:
+            fixed_script = ' '.join(words[1:])  # Remove "My"
+            fixed_script = fixed_script[0].upper() + fixed_script[1:]  # Capitalize first letter
+            print(f"  🔧 Fixed hook: '{first_word} {words[1]}...' -> '{fixed_script.split()[0]}...'")
+            return fixed_script, True
+
+        # Pattern: "I [verb]..." -> "[Verb]..." (only if verb is dramatic)
+        if first_word == "i" and len(words) > 1:
+            second_word = words[1].lower().strip('.,!?"\'')
+            if second_word in STRONG_HOOK_WORDS or second_word in ['accidentally', 'just', 'sent', 'saw']:
+                # Remove "I" and capitalize the verb
+                fixed_script = ' '.join(words[1:])
+                fixed_script = fixed_script[0].upper() + fixed_script[1:]
+                print(f"  🔧 Fixed hook: 'I {words[1]}...' -> '{fixed_script.split()[0]}...'")
+                return fixed_script, True
+
+        # Pattern: "So..." or "Today..." -> just remove it
+        if first_word in ["so", "today", "recently", "yesterday"]:
+            fixed_script = ' '.join(words[1:])
+            if fixed_script:
+                fixed_script = fixed_script[0].upper() + fixed_script[1:]
+                print(f"  🔧 Fixed hook: removed filler word '{first_word}'")
+                return fixed_script, True
+
+        return script, False
+
+    # First sentence should be under 15 words for maximum impact
+    first_sentence = script.split('.')[0] if '.' in script else script.split('!')[0] if '!' in script else script
+    word_count = len(first_sentence.split())
+
+    if word_count > 15:
+        print(f"  ⚠️ Hook too long: {word_count} words (should be < 15)")
+        return script, False
+
+    return script, True
+
+
+    if word_count > 15:
+        print(f"  ⚠️ Hook too long: {word_count} words (should be < 12)")
+        return script, False
+
+    return script, True
+
+
 def rewrite_story(title, body):
+
     """
     Uses Gemini 2.5 Flash to rewrite a Reddit story into a viral script.
     
@@ -124,13 +199,18 @@ def rewrite_story(title, body):
         # Remove any markdown formatting
         headline = re.sub(r'[*#_]', '', headline).strip('"').strip("'")
         script = re.sub(r'[*#_]', '', script)
-        
-        # Validate — target is 100-115 words for a ~45s Short
+
+        # Validate hook strength
+        script, hook_valid = validate_and_fix_hook(script)
+        if not hook_valid:
+            print(f"  ⚠️ Hook validation failed — script may have weak opening")
+
+        # Validate — target is 80-100 words for a ~30-40s Short
         word_count = len(script.split())
-        if word_count > 125:
-            # Trim to ~115 words at a sentence boundary
+        if word_count > 105:
+            # Trim to ~90 words at a sentence boundary
             words = script.split()
-            trimmed = ' '.join(words[:115])
+            trimmed = ' '.join(words[:90])
 
             # Find the last sentence boundary (. ! or ?)
             boundaries = [trimmed.rfind('.'), trimmed.rfind('!'), trimmed.rfind('?')]
@@ -142,28 +222,11 @@ def rewrite_story(title, body):
             else:
                 script = trimmed
             print(f"  ⚠️ Script was {word_count} words — trimmed to {len(script.split())}")        
-        # Phase 3: Inject "scroll-stop" prefix phrases
-        # These 2-3 word hooks buy an extra 1-2 seconds of attention before the story even starts
-        scroll_stoppers = [
-            "Wait for this...",
-            "This is insane...",
-            "You won't believe this...",
-            "Watch till the end...",
-            "This actually happened...",
-            "Listen to this..."
-        ]
-        
-        # Only inject if the AI didn't already use one of these cliches
-        if not any(script.lower().startswith(x.lower().replace('...', '')) for x in scroll_stoppers):
-            stopper = random.choice(scroll_stoppers)
-            script = f"{stopper} {script}"
-            print(f"  💉 Injected scroll-stop phrase: '{stopper}'")
-        
         print(f"  ✅ AI script generated! Headline: \"{headline}\"")
         print(f"     Script 1: {len(script.split())} words")
         if script_part2:
             print(f"     Script 2: {len(script_part2.split())} words")
-        
+
         return headline, script, script_part2
         
     except ImportError:

@@ -53,8 +53,8 @@ ACTIVE_FONT_SIZE = 95              # Base size (±3px random per video for finge
 STROKE_WIDTH = 12                  # Thick black stroke for maximum contrast (MrBeast/Reddit style)
 STROKE_COLOR = 'black'
 
-# 1 word per chunk for viral TikTok/Shorts "karaoke" style
-WORDS_PER_CHUNK = 1
+# 2-3 words per chunk for modern viral pacing
+WORDS_PER_CHUNK = 2
 
 # --- Inspiration Style Overrides ---
 # White text with thinner stroke, smaller font — clean, premium, philosophical aesthetic
