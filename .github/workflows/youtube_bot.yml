@@ -5,7 +5,7 @@ on:
     # 8 videos per day, 3 hours apart
     - cron: '0 0 * * *'    # 12:00 AM UTC (5:30 AM IST)   → Story
     - cron: '0 3 * * *'    # 3:00 AM UTC (8:30 AM IST)    → Would You Rather
-    - cron: '0 6 * * *'    # 6:00 AM UTC (11:30 AM IST)   → Number Facts
+    - cron: '0 6 * * *'    # 6:00 AM UTC (11:30 AM IST)   → Quiz
     - cron: '0 9 * * *'    # 9:00 AM UTC (2:30 PM IST)    → Fake Text
     - cron: '0 12 * * *'   # 12:00 PM UTC (5:30 PM IST)   → Dark Psychology
     - cron: '0 15 * * *'   # 3:00 PM UTC (8:30 PM IST)    → History
@@ -27,6 +27,7 @@ on:
           - true_crime
           - number_facts
           - history
+          - quiz
 
 jobs:
   generate_and_upload:
@@ -123,8 +124,8 @@ jobs:
             echo "type=would_you_rather" >> $GITHUB_OUTPUT
             echo "3:00 UTC slot detected → Would You Rather"
           elif [ "$HOUR" -eq 6 ] || [ "$HOUR" -eq 7 ]; then
-            echo "type=number_facts" >> $GITHUB_OUTPUT
-            echo "6:00 UTC slot detected → Number Facts"
+            echo "type=quiz" >> $GITHUB_OUTPUT
+            echo "6:00 UTC slot detected → Quiz"
           elif [ "$HOUR" -eq 9 ] || [ "$HOUR" -eq 10 ]; then
             echo "type=fake_text" >> $GITHUB_OUTPUT
             echo "9:00 UTC slot detected → Fake Text"

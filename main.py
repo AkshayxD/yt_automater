@@ -24,6 +24,7 @@ from dark_psych_writer import generate_dark_psych_script
 from true_crime_writer import generate_true_crime_script
 from number_facts_writer import generate_number_fact_script
 from history_writer import generate_history_script
+from quiz_writer import generate_quiz_script
 from background_manager import pick_background_segment, record_used_segment
 
 # --- Directories ---
@@ -1578,6 +1579,97 @@ def create_history_short(youtube_client=None, history=None, voice=None):
     return result
 
 
+def create_quiz_short(youtube_client=None, history=None, voice=None):
+    """
+    Pipeline for Interactive Quiz shorts.
+    """
+    result = {'success': False, 'title': None, 'video_id': None, 'file_path': None}
+
+    used_themes = []
+    if history:
+        for vid in history.get('videos', [])[-30:]:
+            theme = vid.get('quiz_theme')
+            if theme:
+                used_themes.append(theme)
+
+    print("\n  ❓ Generating Quiz...")
+    headline, script_text, theme_name = generate_quiz_script(used_themes)
+    print(f"\n  📰 Headline: {headline}")
+    print(f"  📝 Words: {len(script_text.split())}")
+
+    print("  🎤 Generating voiceover...")
+    audio_file = os.path.join(TEMP_DIR, "audio.mp3")
+    subs_file = os.path.join(TEMP_DIR, "subs.srt")
+
+    mp3_path, srt_path = generate_audio_and_subs(
+        script_text, audio_file, subs_file,
+        voice=voice, content_type="would_you_rather"
+    )
+
+    if not mp3_path or not srt_path:
+        print("  ❌ Failed to generate audio. Aborting.")
+        return result
+
+    bg_video, bg_start = pick_background_segment(needed_duration=30.0)
+    if bg_video is None:
+        bg_video = os.path.join(ASSETS_DIR, "background_small.mp4")
+
+    safe_title = "".join([c for c in headline if c.isalpha() or c.isdigit() or c == ' ']).rstrip()
+    safe_title_underscored = safe_title.replace(" ", "_")[:50]
+    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+    final_video_path = os.path.join(VIDEOS_DIR, f"QUIZ_{safe_title_underscored}_{timestamp}.mp4")
+
+    print("  🎥 Assembling Quiz video...")
+    try:
+        rendered_video = create_video(
+            mp3_path, srt_path,
+            background_path=bg_video,
+            output_path=final_video_path,
+            bg_start_time=None,
+            content_type="would_you_rather"
+        )
+    except Exception as e:
+        print(f"  ❌ Error during video generation: {e}")
+        return result
+
+    short_title = headline
+    description = f"{headline}\n\n#Shorts #Trivia #Quiz #Game\n\nDid you get it right?"
+    tags = ["shorts", "trivia", "quiz", "game", "challenge", "brain teaser"]
+
+    if youtube_client:
+        print("  📤 Uploading to YouTube...")
+        try:
+            video_id = upload_video(
+                youtube=youtube_client,
+                file_path=rendered_video,
+                title=short_title,
+                description=description,
+                category_id="24",
+                keywords=tags,
+                privacy_status="public"
+            )
+
+            if video_id:
+                result['success'] = True
+                result['title'] = headline
+                result['video_id'] = video_id
+                result['file_path'] = rendered_video
+                result['quiz_theme'] = theme_name
+
+                dest_path = os.path.join(UPLOADED_DIR, os.path.basename(rendered_video))
+                shutil.move(rendered_video, dest_path)
+        except Exception as e:
+            print(f"  ❌ Failed to upload video: {e}")
+    else:
+        print(f"  ⏭️ Skipping upload (no YouTube client)")
+        result['success'] = True
+        result['title'] = headline
+        result['file_path'] = rendered_video
+        result['quiz_theme'] = theme_name
+
+    return result
+
+
 def run_pipeline():
     """
     Main entry point: generates and uploads multiple viral shorts.
@@ -1609,7 +1701,7 @@ def run_pipeline():
                         help="Path to a text file containing a custom raw Reddit story (first line = title, rest = body) for test generation.")
     parser.add_argument("--schedule", type=str, choices=["morning", "afternoon", "evening"], default=None,
                         help="Wait until target time before uploading (morning=10AM, afternoon=2PM, evening=7PM)")
-    parser.add_argument("--content-type", type=str, choices=["story", "inspiration", "would_you_rather", "fake_text", "dark_psychology", "true_crime", "number_facts", "history"], default="story",
+    parser.add_argument("--content-type", type=str, choices=["story", "inspiration", "would_you_rather", "fake_text", "dark_psychology", "true_crime", "number_facts", "history", "quiz"], default="story",
                         help="Content type to generate")
 
     args, unknown = parser.parse_known_args()
@@ -1850,6 +1942,12 @@ def run_pipeline():
                 history=history,
                 voice=args.voice
             )
+        elif content_type == "quiz":
+            result = create_quiz_short(
+                youtube_client=youtube_client,
+                history=history,
+                voice=args.voice
+            )
         else:
             result = create_and_upload_viral_short(
                 youtube_client=youtube_client,
@@ -1884,6 +1982,8 @@ def run_pipeline():
                 video_record["number_theme"] = result['number_theme']
             if result.get('history_theme'):
                 video_record["history_theme"] = result['history_theme']
+            if result.get('quiz_theme'):
+                video_record["quiz_theme"] = result['quiz_theme']
                 
             history["videos"].append(video_record)
             save_upload_history(history)
