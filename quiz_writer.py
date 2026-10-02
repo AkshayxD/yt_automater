@@ -56,7 +56,9 @@ TOPIC: {topic}
 Respond ONLY with a valid JSON object:
 {{
   "headline": "A punchy ALL CAPS title (4-8 words). Example: 'ONLY 1% CAN PASS THIS QUIZ'",
-  "script": "The full spoken script (under 80 words). Hook → Question → Three... Two... One... → Answer → Comment bait."
+  "script": "The full spoken script (under 80 words). Hook → Question → Three... Two... One... → Answer → Comment bait.",
+  "answer_keyword": "The exact single word in the script where the answer is revealed (e.g., 'Nepal')",
+  "visual_prompt": "A highly detailed, cinematic 3D render representing the answer (e.g. 'A beautiful 3D render of the flag of Nepal')."
 }}"""
 
 def get_unused_theme(used_themes=None):
@@ -72,7 +74,9 @@ def _get_fallback_script(theme):
     return (
         "ONLY 1 PERCENT CAN PASS THIS",
         "Only one percent of people can answer this geography question. Are you ready? What is the only country in the world that doesn't have a rectangular flag? You have three seconds. Three... Two... One... The answer is Nepal! Did you get it right? Let me know in the comments!",
-        theme["theme"]
+        theme["theme"],
+        "Nepal",
+        "A beautiful 3D render of the flag of Nepal flying on top of Mount Everest"
     )
 
 def generate_quiz_script(used_themes=None):
@@ -110,6 +114,8 @@ def generate_quiz_script(used_themes=None):
             data = json.loads(result_text)
             headline = data.get("headline", theme_name.upper()).strip()
             script = data.get("script", "").strip()
+            answer_keyword = data.get("answer_keyword", "").strip()
+            visual_prompt = data.get("visual_prompt", "").strip()
             if not script:
                 return _get_fallback_script(theme)
         except json.JSONDecodeError as e:
@@ -117,7 +123,7 @@ def generate_quiz_script(used_themes=None):
 
         headline = re.sub(r'[*#_]', '', headline).strip('"').strip("'")
         script = re.sub(r'[*#_]', '', script)
-        return headline, script, theme_name
+        return headline, script, theme_name, answer_keyword, visual_prompt
 
     except Exception as e:
         print(f"  ❌ Error generating Quiz script: {e}")

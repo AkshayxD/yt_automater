@@ -47,8 +47,8 @@ else:
 #
 # NOTE: Using RGB tuple instead of hex — some ImageMagick versions parse
 # hex colors incorrectly, causing white/invisible text.
-ACTIVE_COLOR = 'yellow'  # Bright viral yellow — pops on any BG
-INACTIVE_COLOR = 'yellow'
+ACTIVE_COLOR = '#00FF88'  # Changed to green per user request
+INACTIVE_COLOR = '#00FF88'
 ACTIVE_FONT_SIZE = 95              # Base size (±3px random per video for fingerprint variation)
 STROKE_WIDTH = 12                  # Thick black stroke for maximum contrast (MrBeast/Reddit style)
 STROKE_COLOR = 'black'
@@ -58,7 +58,7 @@ WORDS_PER_CHUNK = 2
 
 # --- Inspiration Style Overrides ---
 # White text with thinner stroke, smaller font — clean, premium, philosophical aesthetic
-INSP_ACTIVE_COLOR = 'white'
+INSP_ACTIVE_COLOR = '#00FF88'
 INSP_FONT_SIZE = 80
 INSP_STROKE_WIDTH = 8
 INSP_POP_SCALE = 1.15       # Subtler pop animation (vs 1.25 for story)
@@ -81,7 +81,7 @@ WYR_BG_DIR = os.path.join('assets', 'wyr_bg')
 # --- Fake Text Style ---
 # Uses chat bubble rendering instead of standard subtitles (handled separately)
 # Standard subtitles still used for the narration track
-FT_ACTIVE_COLOR = '#E0E0E0'       # Light gray narration text
+FT_ACTIVE_COLOR = '#00FF88'       # Light gray narration text
 FT_FONT_SIZE = 85
 FT_STROKE_WIDTH = 10
 FT_POP_SCALE = 1.20
@@ -93,11 +93,23 @@ FT_BG_DIR = os.path.join('assets', 'fake_text_bg')
 
 # --- Dark Psychology Style ---
 # Red accent text — danger/warning feel, authoritative
-DP_ACTIVE_COLOR = '#FF3333'
+DP_ACTIVE_COLOR = '#00FF88'
 DP_FONT_SIZE = 85
 DP_STROKE_WIDTH = 10
 DP_POP_SCALE = 1.20
 DP_ZOOM_MIN = 1.02
+
+# --- Quiz Style ---
+# Vibrant orange/magenta text for fun game show feel
+QUIZ_ACTIVE_COLOR = '#00FF88'
+QUIZ_FONT_SIZE = 90
+QUIZ_STROKE_WIDTH = 10
+QUIZ_POP_SCALE = 1.25
+QUIZ_ZOOM_MIN = 1.03
+QUIZ_ZOOM_MAX = 1.07
+QUIZ_BG_DIR = os.path.join('assets', 'quiz_bg')
+QUIZ_MUSIC_DIR = os.path.join('assets', 'quiz_music')
+QUIZ_MUSIC_VOLUME = 0.15
 DP_ZOOM_MAX = 1.05
 DP_BG_DIR = os.path.join('assets', 'dark_psych_bg')
 
@@ -219,6 +231,12 @@ def create_subtitle_clips(chunks, y_pos=None, font_size=None, content_type="stor
         pop_scale = TC_POP_SCALE
         if font_size is None:
             font_size = TC_FONT_SIZE
+    elif content_type == "quiz":
+        text_color = QUIZ_ACTIVE_COLOR
+        stroke_w = QUIZ_STROKE_WIDTH
+        pop_scale = QUIZ_POP_SCALE
+        if font_size is None:
+            font_size = QUIZ_FONT_SIZE
     else:
         text_color = ACTIVE_COLOR
         stroke_w = STROKE_WIDTH
@@ -511,7 +529,7 @@ def add_sfx_hits(audio_clip, words_data):
 
 
 def create_video(audio_path, srt_path, background_path="assets/background_small.mp4",
-                 output_path="final_video.mp4", bg_start_time=None, content_type="story", messages=None):
+                 output_path="final_video.mp4", bg_start_time=None, content_type="story", messages=None, popup_image_path=None, popup_trigger_word=None):
     """
     Assembles the final video by combining background, audio, and animated captions.
 
@@ -604,6 +622,7 @@ def create_video(audio_path, srt_path, background_path="assets/background_small.
             "would_you_rather": (WYR_ZOOM_MIN, WYR_ZOOM_MAX),
             "dark_psychology": (DP_ZOOM_MIN, DP_ZOOM_MAX),
             "true_crime": (TC_ZOOM_MIN, TC_ZOOM_MAX),
+            "quiz": (QUIZ_ZOOM_MIN, QUIZ_ZOOM_MAX),
         }
         z_min, z_max = zoom_ranges.get(content_type, (1.03, 1.07))
         zoom_target = random.uniform(z_min, z_max)
@@ -620,15 +639,16 @@ def create_video(audio_path, srt_path, background_path="assets/background_small.
         )
 
     # --- Dark Gradient Overlay ---
-    gradient_top = (ColorClip(size=(VIDEO_WIDTH, VIDEO_HEIGHT // 4), color=(0, 0, 0))
-                    .set_duration(audio_duration)
-                    .set_position(('center', 'top'))
-                    .set_opacity(0.3))
+    # Removed per user request
+    # gradient_top = (ColorClip(size=(VIDEO_WIDTH, VIDEO_HEIGHT // 4), color=(0, 0, 0))
+    #                 .set_duration(audio_duration)
+    #                 .set_position(('center', 'top'))
+    #                 .set_opacity(0.3))
 
-    gradient_bottom = (ColorClip(size=(VIDEO_WIDTH, VIDEO_HEIGHT // 3), color=(0, 0, 0))
-                       .set_duration(audio_duration)
-                       .set_position(('center', 'bottom'))
-                       .set_opacity(0.4))
+    # gradient_bottom = (ColorClip(size=(VIDEO_WIDTH, VIDEO_HEIGHT // 3), color=(0, 0, 0))
+    #                    .set_duration(audio_duration)
+    #                    .set_position(('center', 'bottom'))
+    #                    .set_opacity(0.4))
 
     # --- Background Music (CC0 tracks) ---
     # Select music directory and volume based on content type
@@ -638,6 +658,7 @@ def create_video(audio_path, srt_path, background_path="assets/background_small.
         "dark_psychology": (os.path.join('assets', 'music'), 0.10),  # Subtle
         "would_you_rather": (os.path.join('assets', 'music'), 0.08), # Very subtle
         "fake_text": (os.path.join('assets', 'music'), 0.08),        # Very subtle
+        "quiz": (QUIZ_MUSIC_DIR, QUIZ_MUSIC_VOLUME),
     }
     music_dir, music_vol = music_config.get(content_type, (os.path.join('assets', 'music'), 0.12))
     
@@ -683,6 +704,7 @@ def create_video(audio_path, srt_path, background_path="assets/background_small.
         "inspiration": 0.50,
         "dark_psychology": 0.52,
         "true_crime": 0.50,
+        "quiz": 0.50,
     }
     if content_type in caption_y_map:
         caption_y = int(VIDEO_HEIGHT * caption_y_map[content_type])
@@ -696,6 +718,7 @@ def create_video(audio_path, srt_path, background_path="assets/background_small.
         "fake_text": FT_FONT_SIZE,
         "dark_psychology": DP_FONT_SIZE,
         "true_crime": TC_FONT_SIZE,
+        "quiz": QUIZ_FONT_SIZE,
     }
     base_size = font_size_map.get(content_type, ACTIVE_FONT_SIZE)
     vid_font_size = base_size + random.randint(-3, 3)
@@ -719,9 +742,48 @@ def create_video(audio_path, srt_path, background_path="assets/background_small.
         print("  Generating chat bubbles...")
         bubble_clips = create_chat_bubble_clips(messages, audio_duration)
 
+    # --- Pop-up Image (for Quiz answers) ---
+    popup_clips = []
+    if popup_image_path and popup_trigger_word and words:
+        from moviepy.editor import ImageClip
+        trigger_lower = popup_trigger_word.lower()
+        popup_start = None
+        for w in words:
+            if trigger_lower in w['text'].lower():
+                popup_start = w['start']
+                break
+        
+        if popup_start is not None and os.path.exists(popup_image_path):
+            img = ImageClip(popup_image_path)
+            
+            # Make it slightly smaller to leave room for the border
+            img = img.resize(width=int(VIDEO_WIDTH * 0.75))
+            
+            # Add a stylish thick white border (like a polaroid/card)
+            from moviepy.video.fx.all import margin
+            img = img.margin(color=(255, 255, 255), top=15, bottom=15, left=15, right=15)
+            
+            # Add a slow, continuous zoom-in effect to keep it dynamic
+            def popup_zoom(t):
+                # t goes from 0 to its duration
+                # Zoom from 1.0x to 1.05x
+                progress = t / max(audio_duration, 0.1)
+                return 1.0 + (0.05 * progress)
+            img = img.resize(popup_zoom)
+
+            img = img.set_position(('center', 'center'))
+            img = img.set_start(popup_start)
+            img = img.set_end(audio_duration)
+            
+            # Smooth fade in over 0.25 seconds
+            img = img.crossfadein(0.25)
+            
+            popup_clips.append(img)
+            print(f"  🖼️ Added pop-up image at {popup_start:.2f}s (triggered by '{popup_trigger_word}') with stylish border & fade-in")
+
     # --- Composite Everything ---
     print("  Compositing layers...")
-    all_clips = [video_with_audio, gradient_top, gradient_bottom] + bubble_clips + subtitle_clips
+    all_clips = [video_with_audio] + bubble_clips + popup_clips + subtitle_clips
     final_video = CompositeVideoClip(all_clips, size=(VIDEO_WIDTH, VIDEO_HEIGHT))
 
     # --- Seamless Loop Ending ---

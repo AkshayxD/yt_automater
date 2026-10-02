@@ -53,6 +53,14 @@ CONTENT_DIRS = {
         "description": "Historical Facts backgrounds",
         "search_keywords": "old film grain, vintage paper, historical documents, ancient architecture, sepia tone",
     },
+    "assets/quiz_bg": {
+        "description": "Quiz backgrounds",
+        "search_keywords": "colorful abstract background, neon lights, quiz show background, vibrant particles",
+    },
+    "assets/quiz_music": {
+        "description": "Quiz background music",
+        "search_keywords": "fun upbeat music, game show music, quiz timer, fast-paced electronic",
+    },
 }
 
 

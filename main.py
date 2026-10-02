@@ -1593,9 +1593,27 @@ def create_quiz_short(youtube_client=None, history=None, voice=None):
                 used_themes.append(theme)
 
     print("\n  ❓ Generating Quiz...")
-    headline, script_text, theme_name = generate_quiz_script(used_themes)
+    headline, script_text, theme_name, answer_keyword, visual_prompt = generate_quiz_script(used_themes)
     print(f"\n  📰 Headline: {headline}")
     print(f"  📝 Words: {len(script_text.split())}")
+
+    popup_image_path = None
+    if visual_prompt and answer_keyword:
+        import urllib.parse
+        import urllib.request
+        print(f"  🎨 Generating AI image for answer: {answer_keyword}")
+        safe_prompt = urllib.parse.quote(visual_prompt)
+        image_url = f"https://image.pollinations.ai/prompt/{safe_prompt}?width=1080&height=1920"
+        popup_image_path = os.path.join(TEMP_DIR, "quiz_visual.jpg")
+        try:
+            req = urllib.request.Request(image_url, headers={'User-Agent': 'Mozilla/5.0'})
+            with urllib.request.urlopen(req, timeout=30) as response:
+                with open(popup_image_path, 'wb') as f:
+                    f.write(response.read())
+            print("  ✅ AI image downloaded.")
+        except Exception as e:
+            print(f"  ❌ Failed to download AI image: {e}")
+            popup_image_path = None
 
     print("  🎤 Generating voiceover...")
     audio_file = os.path.join(TEMP_DIR, "audio.mp3")
@@ -1603,16 +1621,24 @@ def create_quiz_short(youtube_client=None, history=None, voice=None):
 
     mp3_path, srt_path = generate_audio_and_subs(
         script_text, audio_file, subs_file,
-        voice=voice, content_type="would_you_rather"
+        voice=voice, content_type="quiz"
     )
 
     if not mp3_path or not srt_path:
         print("  ❌ Failed to generate audio. Aborting.")
         return result
 
-    bg_video, bg_start = pick_background_segment(needed_duration=30.0)
-    if bg_video is None:
-        bg_video = os.path.join(ASSETS_DIR, "background_small.mp4")
+    import glob
+    quiz_bg_dir = os.path.join(ASSETS_DIR, "quiz_bg")
+    quiz_bg_files = glob.glob(os.path.join(quiz_bg_dir, '*.mp4'))
+    
+    if quiz_bg_files:
+        bg_video = random.choice(quiz_bg_files)
+        print(f"  🎬 Using Quiz background: {os.path.basename(bg_video)}")
+    else:
+        bg_video, bg_start = pick_background_segment(needed_duration=30.0)
+        if bg_video is None:
+            bg_video = os.path.join(ASSETS_DIR, "background_small.mp4")
 
     safe_title = "".join([c for c in headline if c.isalpha() or c.isdigit() or c == ' ']).rstrip()
     safe_title_underscored = safe_title.replace(" ", "_")[:50]
@@ -1626,7 +1652,9 @@ def create_quiz_short(youtube_client=None, history=None, voice=None):
             background_path=bg_video,
             output_path=final_video_path,
             bg_start_time=None,
-            content_type="would_you_rather"
+            content_type="quiz",
+            popup_image_path=popup_image_path,
+            popup_trigger_word=answer_keyword
         )
     except Exception as e:
         print(f"  ❌ Error during video generation: {e}")
