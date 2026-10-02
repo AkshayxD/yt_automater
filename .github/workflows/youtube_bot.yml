@@ -118,32 +118,32 @@ jobs:
           # Auto-detect from cron schedule:
           HOUR=$(date -u +%H)
           if [ "$HOUR" -eq 0 ] || [ "$HOUR" -eq 1 ]; then
-            echo "type=story" >> $GITHUB_OUTPUT
-            echo "0:00 UTC slot detected → Story"
-          elif [ "$HOUR" -eq 3 ] || [ "$HOUR" -eq 4 ]; then
-            echo "type=would_you_rather" >> $GITHUB_OUTPUT
-            echo "3:00 UTC slot detected → Would You Rather"
-          elif [ "$HOUR" -eq 6 ] || [ "$HOUR" -eq 7 ]; then
             echo "type=quiz" >> $GITHUB_OUTPUT
-            echo "6:00 UTC slot detected → Quiz"
+            echo "0:00 UTC slot detected → Quiz"
+          elif [ "$HOUR" -eq 3 ] || [ "$HOUR" -eq 4 ]; then
+            echo "type=two_truths" >> $GITHUB_OUTPUT
+            echo "3:00 UTC slot detected → Two Truths and a Lie"
+          elif [ "$HOUR" -eq 6 ] || [ "$HOUR" -eq 7 ]; then
+            echo "type=riddle" >> $GITHUB_OUTPUT
+            echo "6:00 UTC slot detected → Riddle of the Day"
           elif [ "$HOUR" -eq 9 ] || [ "$HOUR" -eq 10 ]; then
-            echo "type=fake_text" >> $GITHUB_OUTPUT
-            echo "9:00 UTC slot detected → Fake Text"
+            echo "type=survive" >> $GITHUB_OUTPUT
+            echo "9:00 UTC slot detected → Would You Survive"
           elif [ "$HOUR" -eq 12 ] || [ "$HOUR" -eq 13 ]; then
-            echo "type=dark_psychology" >> $GITHUB_OUTPUT
-            echo "12:00 UTC slot detected → Dark Psychology"
+            echo "type=spot_fake" >> $GITHUB_OUTPUT
+            echo "12:00 UTC slot detected → Spot the Fake"
           elif [ "$HOUR" -eq 15 ] || [ "$HOUR" -eq 16 ]; then
-            echo "type=history" >> $GITHUB_OUTPUT
-            echo "15:00 UTC slot detected → History"
+            echo "type=random_old" >> $GITHUB_OUTPUT
+            echo "15:00 UTC slot detected → Random Old Category"
           elif [ "$HOUR" -eq 18 ] || [ "$HOUR" -eq 19 ]; then
-            echo "type=true_crime" >> $GITHUB_OUTPUT
-            echo "18:00 UTC slot detected → True Crime"
+            echo "type=random_old" >> $GITHUB_OUTPUT
+            echo "18:00 UTC slot detected → Random Old Category"
           elif [ "$HOUR" -eq 21 ] || [ "$HOUR" -eq 22 ]; then
-            echo "type=inspiration" >> $GITHUB_OUTPUT
-            echo "21:00 UTC slot detected → Inspiration"
+            echo "type=random_old" >> $GITHUB_OUTPUT
+            echo "21:00 UTC slot detected → Random Old Category"
           else
-            echo "type=story" >> $GITHUB_OUTPUT
-            echo "Unknown slot detected → Defaulting to Story"
+            echo "type=random_old" >> $GITHUB_OUTPUT
+            echo "Unknown slot detected → Defaulting to Random Old Category"
           fi
         fi
 
