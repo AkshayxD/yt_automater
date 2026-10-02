@@ -25,6 +25,7 @@ from true_crime_writer import generate_true_crime_script
 from number_facts_writer import generate_number_fact_script
 from history_writer import generate_history_script
 from quiz_writer import generate_quiz_script
+from interactive_writer import generate_interactive_script
 from background_manager import pick_background_segment, record_used_segment
 
 # --- Directories ---
@@ -1698,6 +1699,125 @@ def create_quiz_short(youtube_client=None, history=None, voice=None):
     return result
 
 
+def create_interactive_short(youtube_client=None, history=None, voice=None, format_type="riddle"):
+    """
+    Pipeline for new interactive shorts (Two Truths, Riddle, Survive, Spot Fake).
+    """
+    result = {'success': False, 'title': None, 'video_id': None, 'file_path': None}
+
+    used_themes = []
+    if history:
+        for vid in history.get('videos', [])[-30:]:
+            theme = vid.get('interactive_theme')
+            if theme and vid.get('content_type') == format_type:
+                used_themes.append(theme)
+
+    print(f"\n  ❓ Generating {format_type} Interactive Short...")
+    headline, script_text, theme_name, answer_keyword, visual_prompt = generate_interactive_script(format_type)
+    print(f"\n  📰 Headline: {headline}")
+    print(f"  📝 Words: {len(script_text.split())}")
+
+    popup_image_path = None
+    if visual_prompt and answer_keyword:
+        import urllib.parse
+        import urllib.request
+        print(f"  🎨 Generating AI image for answer: {answer_keyword}")
+        safe_prompt = urllib.parse.quote(visual_prompt)
+        image_url = f"https://image.pollinations.ai/prompt/{safe_prompt}?width=1080&height=1920"
+        popup_image_path = os.path.join(TEMP_DIR, f"{format_type}_visual.jpg")
+        try:
+            req = urllib.request.Request(image_url, headers={'User-Agent': 'Mozilla/5.0'})
+            with urllib.request.urlopen(req, timeout=30) as response:
+                with open(popup_image_path, 'wb') as f:
+                    f.write(response.read())
+            print("  ✅ AI image downloaded.")
+        except Exception as e:
+            print(f"  ❌ Failed to download AI image: {e}")
+            popup_image_path = None
+
+    print("  🎤 Generating voiceover...")
+    audio_file = os.path.join(TEMP_DIR, "audio.mp3")
+    subs_file = os.path.join(TEMP_DIR, "subs.srt")
+
+    mp3_path, srt_path = generate_audio_and_subs(
+        script_text, audio_file, subs_file,
+        voice=voice, content_type="quiz" # using quiz styling
+    )
+
+    if not mp3_path or not srt_path:
+        print("  ❌ Failed to generate audio. Aborting.")
+        return result
+
+    import glob
+    quiz_bg_dir = os.path.join(ASSETS_DIR, "quiz_bg")
+    quiz_bg_files = glob.glob(os.path.join(quiz_bg_dir, '*.mp4'))
+    
+    if quiz_bg_files:
+        bg_video = random.choice(quiz_bg_files)
+        print(f"  🎬 Using background: {os.path.basename(bg_video)}")
+    else:
+        bg_video, bg_start = pick_background_segment(needed_duration=30.0)
+        if bg_video is None:
+            bg_video = os.path.join(ASSETS_DIR, "background_small.mp4")
+
+    safe_title = "".join([c for c in headline if c.isalpha() or c.isdigit() or c == ' ']).rstrip()
+    safe_title_underscored = safe_title.replace(" ", "_")[:50]
+    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+    final_video_path = os.path.join(VIDEOS_DIR, f"INT_{format_type.upper()}_{safe_title_underscored}_{timestamp}.mp4")
+
+    print(f"  🎥 Assembling {format_type} video...")
+    try:
+        rendered_video = create_video(
+            mp3_path, srt_path,
+            background_path=bg_video,
+            output_path=final_video_path,
+            bg_start_time=None,
+            content_type="quiz", # use quiz styling
+            popup_image_path=popup_image_path,
+            popup_trigger_word=answer_keyword
+        )
+    except Exception as e:
+        print(f"  ❌ Error during video generation: {e}")
+        return result
+
+    short_title = headline
+    description = f"{headline}\n\n#Shorts #Challenge #Game\n\nDid you get it right?"
+    tags = ["shorts", "challenge", "game", "brain teaser", format_type]
+
+    if youtube_client:
+        print("  📤 Uploading to YouTube...")
+        try:
+            video_id = upload_video(
+                youtube=youtube_client,
+                file_path=rendered_video,
+                title=short_title,
+                description=description,
+                category_id="24",
+                keywords=tags,
+                privacy_status="public"
+            )
+
+            if video_id:
+                result['success'] = True
+                result['title'] = headline
+                result['video_id'] = video_id
+                result['file_path'] = rendered_video
+                result['interactive_theme'] = theme_name
+
+                dest_path = os.path.join(UPLOADED_DIR, os.path.basename(rendered_video))
+                shutil.move(rendered_video, dest_path)
+        except Exception as e:
+            print(f"  ❌ Failed to upload video: {e}")
+    else:
+        print(f"  ⏭️ Skipping upload (no YouTube client)")
+        result['success'] = True
+        result['title'] = headline
+        result['file_path'] = rendered_video
+        result['interactive_theme'] = theme_name
+
+    return result
+
+
 def run_pipeline():
     """
     Main entry point: generates and uploads multiple viral shorts.
@@ -1729,7 +1849,7 @@ def run_pipeline():
                         help="Path to a text file containing a custom raw Reddit story (first line = title, rest = body) for test generation.")
     parser.add_argument("--schedule", type=str, choices=["morning", "afternoon", "evening"], default=None,
                         help="Wait until target time before uploading (morning=10AM, afternoon=2PM, evening=7PM)")
-    parser.add_argument("--content-type", type=str, choices=["story", "inspiration", "would_you_rather", "fake_text", "dark_psychology", "true_crime", "number_facts", "history", "quiz"], default="story",
+    parser.add_argument("--content-type", type=str, choices=["story", "inspiration", "would_you_rather", "fake_text", "dark_psychology", "true_crime", "number_facts", "history", "quiz", "two_truths", "riddle", "survive", "spot_fake", "random_old"], default="story",
                         help="Content type to generate")
 
     args, unknown = parser.parse_known_args()
@@ -1885,6 +2005,13 @@ def run_pipeline():
         print(f"   Schedule: {args.schedule}")
     print(f"   Time: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
     content_type = args.content_type
+    
+    if content_type == "random_old":
+        old_types = ["story", "would_you_rather", "fake_text", "dark_psychology", "history", "true_crime", "inspiration"]
+        import random
+        content_type = random.choice(old_types)
+        print(f"  🎲 Randomly selected old category: {content_type}")
+
     print(f"   Content Type: {content_type}")
     print("=" * 60)
 
@@ -1976,6 +2103,13 @@ def run_pipeline():
                 history=history,
                 voice=args.voice
             )
+        elif content_type in ["two_truths", "riddle", "survive", "spot_fake"]:
+            result = create_interactive_short(
+                youtube_client=youtube_client,
+                history=history,
+                voice=args.voice,
+                format_type=content_type
+            )
         else:
             result = create_and_upload_viral_short(
                 youtube_client=youtube_client,
@@ -2012,6 +2146,8 @@ def run_pipeline():
                 video_record["history_theme"] = result['history_theme']
             if result.get('quiz_theme'):
                 video_record["quiz_theme"] = result['quiz_theme']
+            if result.get('interactive_theme'):
+                video_record["interactive_theme"] = result['interactive_theme']
                 
             history["videos"].append(video_record)
             save_upload_history(history)

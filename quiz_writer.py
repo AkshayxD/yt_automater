@@ -46,7 +46,8 @@ CRITICAL RULES:
 2. The trivia MUST be interesting, not boring school facts.
 3. NO EMOJIS, NO BRACKETS, NO MARKDOWN: Pure spoken text only.
 4. PROPER APOSTROPHES: Always write "don't" not "dont".
-5. Use "Three... Two... One..." precisely to simulate the countdown."""
+5. Use "Three... Two... One..." precisely to simulate the countdown.
+6. Provide a highly detailed `visual_prompt` for the exact moment the answer is revealed. This prompt will be sent to an AI Image Generator. Make it cinematic and beautiful."""
 
 QUIZ_USER_PROMPT = """Write a viral interactive quiz YouTube Shorts script about this topic:
 
