@@ -27,6 +27,8 @@ from history_writer import generate_history_script
 from quiz_writer import generate_quiz_script
 from interactive_writer import generate_interactive_script
 from background_manager import pick_background_segment, record_used_segment
+from long_form_writer import generate_script as generate_long_script
+from long_video_gen import create_long_video
 
 # --- Directories ---
 VIDEOS_DIR = "videos_to_upload"
@@ -1830,6 +1832,74 @@ def create_interactive_short(youtube_client=None, history=None, voice=None, form
     return result
 
 
+def create_and_upload_long_form(youtube_client=None, history=None, voice=None):
+    """Pipeline for Long-Form Video Essays"""
+    result = {'success': False, 'title': None, 'video_id': None, 'file_path': None}
+    
+    print("\n  📚 Generating Long-Form Essay...")
+    script_data = generate_long_script()
+    headline = script_data.get('headline', 'Deep Dive')
+    script_text = script_data.get('script', '')
+    visual_prompts = script_data.get('visual_prompts', [])
+    topic = script_data.get('topic', 'Psychology')
+
+    print(f"\n  📰 Headline: {headline}")
+    print(f"  📝 Words: {len(script_text.split())}")
+    
+    print("  🎤 Generating voiceover...")
+    audio_file = os.path.join(TEMP_DIR, "audio_long.mp3")
+    subs_file = os.path.join(TEMP_DIR, "subs_long.srt")
+
+    mp3_path, srt_path = generate_audio_and_subs(
+        script_text, audio_file, subs_file,
+        voice=voice, content_type="story"
+    )
+
+    if not mp3_path or not srt_path:
+        print("  ❌ Failed to generate audio. Aborting.")
+        return result
+
+    safe_title = "".join([c for c in headline if c.isalpha() or c.isdigit() or c == ' ']).rstrip()
+    safe_title_underscored = safe_title.replace(" ", "_")[:50]
+    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+    final_video_path = os.path.join(VIDEOS_DIR, f"LONG_{safe_title_underscored}_{timestamp}.mp4")
+
+    rendered_video = create_long_video(mp3_path, srt_path, visual_prompts, output_path=final_video_path)
+    
+    description = f"{headline}\n\n#DeepDive #Psychology #History"
+    tags = ["video essay", "deep dive", "psychology", "history", "documentary"]
+
+    if youtube_client:
+        print("  📤 Uploading to YouTube...")
+        try:
+            video_id = upload_video(
+                youtube=youtube_client,
+                file_path=rendered_video,
+                title=headline,
+                description=description,
+                category_id="27", # Education
+                keywords=tags,
+                privacy_status="public"
+            )
+
+            if video_id:
+                result['success'] = True
+                result['title'] = headline
+                result['video_id'] = video_id
+                result['file_path'] = rendered_video
+                dest_path = os.path.join(UPLOADED_DIR, os.path.basename(rendered_video))
+                shutil.move(rendered_video, dest_path)
+        except Exception as e:
+            print(f"  ❌ Failed to upload video: {e}")
+    else:
+        print(f"  ⏭️ Skipping upload (no YouTube client)")
+        result['success'] = True
+        result['title'] = headline
+        result['file_path'] = rendered_video
+
+    return result
+
+
 def run_pipeline():
     """
     Main entry point: generates and uploads multiple viral shorts.
@@ -1861,6 +1931,8 @@ def run_pipeline():
                         help="Path to a text file containing a custom raw Reddit story (first line = title, rest = body) for test generation.")
     parser.add_argument("--schedule", type=str, choices=["morning", "afternoon", "evening"], default=None,
                         help="Wait until target time before uploading (morning=10AM, afternoon=2PM, evening=7PM)")
+    parser.add_argument("--format", type=str, choices=["short", "long"], default="short",
+                        help="Video format (short=Vertical <60s, long=Widescreen Essay 3-8m)")
     parser.add_argument("--content-type", type=str, choices=["story", "inspiration", "would_you_rather", "fake_text", "dark_psychology", "true_crime", "number_facts", "history", "quiz", "two_truths", "riddle", "survive", "spot_fake", "random_old"], default="story",
                         help="Content type to generate")
 
@@ -2064,10 +2136,16 @@ def run_pipeline():
     successful = 0
     for i in range(args.num):
         print("\n" + "\u2500" * 60)
-        print(f"\U0001F4F9 VIDEO {i + 1} of {args.num} ({content_type.upper()})")
+        print(f"\U0001F4F9 VIDEO {i + 1} of {args.num} ({'LONG FORM' if args.format == 'long' else content_type.upper()})")
         print("\u2500" * 60)
-
-        if content_type == "inspiration":
+        
+        if args.format == "long":
+            result = create_and_upload_long_form(
+                youtube_client=youtube_client,
+                history=history,
+                voice=args.voice
+            )
+        elif content_type == "inspiration":
             result = create_inspirational_short(
                 youtube_client=youtube_client,
                 history=history,

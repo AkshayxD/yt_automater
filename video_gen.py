@@ -642,7 +642,7 @@ def add_sfx_hits(audio_clip, words_data):
 
 
 def create_video(audio_path, srt_path, background_path="assets/background_small.mp4",
-                 output_path="final_video.mp4", bg_start_time=None, content_type="story", messages=None, popup_image_path=None, popup_trigger_word=None, hook_text=None):
+                 output_path="final_video.mp4", bg_start_time=None, content_type="story", messages=None, popup_image_path=None, popup_trigger_word=None, hook_text=None, video_format="short"):
     """
     Assembles the final video by combining background, audio, and animated captions.
 
@@ -714,17 +714,30 @@ def create_video(audio_path, srt_path, background_path="assets/background_small.
         end_time = min(start_time + audio_duration, bg_clip.duration)
         bg_clip = bg_clip.subclip(start_time, end_time)
 
-        # Crop to vertical 9:16
-        # Random ±50px horizontal offset = every video has a unique pixel fingerprint
-        # Prevents YouTube's visual deduplication from flagging the channel as automated
-        bg_clip = bg_clip.resize(height=VIDEO_HEIGHT)
-        w, h = bg_clip.size
-        x_center = w / 2
-        half_width = VIDEO_WIDTH / 2
-        crop_offset = random.randint(-50, 50)  # Unique per video
-        x1 = max(0, x_center - half_width + crop_offset)
-        x2 = min(w, x_center + half_width + crop_offset)
-        bg_clip = bg_clip.crop(x1=x1, y1=0, x2=x2, y2=VIDEO_HEIGHT)
+        # Crop/Rotate background based on video format
+        if video_format == "long":
+            v_width = 1920
+            v_height = 1080
+            # Resize so width fills 1920, then crop top/bottom
+            bg_clip = bg_clip.resize(width=v_width)
+            w, h = bg_clip.size
+            if h > v_height:
+                y_center = h / 2
+                half_height = v_height / 2
+                bg_clip = bg_clip.crop(x1=0, y1=y_center-half_height, x2=v_width, y2=y_center+half_height)
+            else:
+                bg_clip = bg_clip.resize(height=v_height, width=v_width)
+        else:
+            v_width = VIDEO_WIDTH
+            v_height = VIDEO_HEIGHT
+            bg_clip = bg_clip.resize(height=v_height)
+            w, h = bg_clip.size
+            x_center = w / 2
+            half_width = v_width / 2
+            crop_offset = random.randint(-50, 50)
+            x1 = max(0, x_center - half_width + crop_offset)
+            x2 = min(w, x_center + half_width + crop_offset)
+            bg_clip = bg_clip.crop(x1=x1, y1=0, x2=x2, y2=v_height)
 
         # --- Subtle Zoom Drift ---
         # Background slowly zooms 1.0x → 1.05x over the video duration.
@@ -746,7 +759,7 @@ def create_video(audio_path, srt_path, background_path="assets/background_small.
     else:
         print("  ⚠️ No background video found — using dark background")
         bg_clip = ColorClip(
-            size=(VIDEO_WIDTH, VIDEO_HEIGHT),
+            size=(1920 if video_format == "long" else VIDEO_WIDTH, 1080 if video_format == "long" else VIDEO_HEIGHT),
             color=(12, 12, 20),
             duration=audio_duration
         )
@@ -819,10 +832,13 @@ def create_video(audio_path, srt_path, background_path="assets/background_small.
         "true_crime": 0.50,
         "quiz": 0.50,
     }
-    if content_type in caption_y_map:
-        caption_y = int(VIDEO_HEIGHT * caption_y_map[content_type])
+    if video_format == "long":
+        caption_y = int(1080 * 0.85)  # Lower third
     else:
-        caption_y = int(VIDEO_HEIGHT * random.uniform(0.45, 0.60))
+        if content_type in caption_y_map:
+            caption_y = int(VIDEO_HEIGHT * caption_y_map[content_type])
+        else:
+            caption_y = int(VIDEO_HEIGHT * random.uniform(0.45, 0.60))
 
     # --- Random font size (±3px) for anti-fingerprinting ---
     font_size_map = {
@@ -843,10 +859,11 @@ def create_video(audio_path, srt_path, background_path="assets/background_small.
         print("  ⚠️ No subtitles found in SRT file!")
         subtitle_clips = []
     else:
-        chunks = group_words_into_chunks(words)
-        subtitle_clips = create_subtitle_clips(chunks, y_pos=caption_y, font_size=vid_font_size, content_type=content_type)
+        words_per_chunk = 8 if video_format == "long" else WORDS_PER_CHUNK
+        chunks = group_words_into_chunks(words, words_per_chunk=words_per_chunk)
+        subtitle_clips = create_subtitle_clips(chunks, y_pos=caption_y, font_size=vid_font_size if video_format == "short" else int(vid_font_size * 0.7), content_type=content_type)
         print(f"  Created {len(subtitle_clips)} subtitle clips "
-              f"from {len(words)} words ({WORDS_PER_CHUNK} words/chunk) "
+              f"from {len(words)} words ({words_per_chunk} words/chunk) "
               f"at y={caption_y}px, font={vid_font_size}px, style={content_type}")
 
     # --- Fake Text Chat Bubbles ---
