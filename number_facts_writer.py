@@ -74,7 +74,7 @@ USER_PROMPT_TEMPLATE = """Generate a mind-blowing number fact about: {theme}
 Respond ONLY with valid JSON:
 {{
   "headline": "Punchy ALL CAPS title (5-8 words). Example: 'YOUR BRAIN CAN'T COMPREHEND THIS NUMBER'",
-  "script": "The 50-70 word script following the HOOK → REVEAL → CLOSER structure. Start with the number/comparison, end with a Subscribe CTA.",
+  "script": "The 50-70 word script following the HOOK → REVEAL → CLOSER structure. Start with the number/comparison, end with a combined question and subscribe CTA.",
   "key_number": "The main number featured (for visual emphasis, e.g., '10^120' or '52!' or '8 billion')"
 }}"""
 

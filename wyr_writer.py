@@ -74,7 +74,7 @@ THE PERFECT SCRIPT STRUCTURE:
 
 4. THE TWIST (1 sentence, optional): Add a surprising angle neither option covers. "But here's what nobody considers..."
 
-5. SUBSCRIBE CTA (1 sentence, 28-35 seconds): Force the viewer to subscribe. Rotate between: "Subscribe if you picked A.", "Hit that subscribe button to join the debate.", "I went with A. Subscribe if you agree."
+5. ENGAGEMENT CTA (1-2 sentences, 28-35 seconds): Force the viewer to comment AND subscribe. Rotate between: "Comment A or B below and hit subscribe.", "Which one did you pick? Tell me in the comments and subscribe to join the debate.", "I went with A. Tell me your pick and subscribe if you agree."
 
 CRITICAL RULES:
 1. 80-100 words EXACTLY. Every word must earn its place.
@@ -93,7 +93,7 @@ THEME: {theme}
 Respond ONLY with a valid JSON object:
 {{
   "headline": "A punchy ALL CAPS title (4-8 words). Examples: 'WOULD YOU RATHER KNOW WHEN YOU DIE', 'THIS CHOICE WILL BREAK YOU'",
-  "script": "The full spoken script (80-100 words). Dilemma → Option A → Option B → Subscribe CTA.",
+  "script": "The full spoken script (80-100 words). Dilemma → Option A → Option B → Engagement CTA.",
   "option_a": "Brief label for Option A (2-5 words)",
   "option_b": "Brief label for Option B (2-5 words)"
 }}"""
