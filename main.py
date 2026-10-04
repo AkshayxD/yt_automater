@@ -319,10 +319,11 @@ def generate_dark_psych_metadata(headline, script_text, topic):
     Returns: (short_title, description, tags)
     """
     short_title = headline.strip().strip('"').strip("'").strip()
-    if len(short_title) > 50:
-        short_title = short_title[:47]
+    # Psychology titles benefit from being longer & more specific (up to 70 chars)
+    if len(short_title) > 70:
+        short_title = short_title[:67]
         last_space = short_title.rfind(' ')
-        if last_space > 25:
+        if last_space > 30:
             short_title = short_title[:last_space]
         short_title += "..."
     
@@ -333,7 +334,7 @@ def generate_dark_psych_metadata(headline, script_text, topic):
     description = (
         f"{first_sentence}\n\n"
         f"#Shorts #DarkPsychology #Manipulation #Psychology #MindTricks\n\n"
-        f"Save this. You'll need it. \U0001F4CC\n"
+        f"Save this before it's gone. \U0001F4CC\n"
         f"Follow for daily psychology \U0001F514\n\n"
         f"---\n"
         f"Topic: {topic}\n"
@@ -341,7 +342,8 @@ def generate_dark_psych_metadata(headline, script_text, topic):
     )
     
     base_tags = ["shorts", "dark psychology", "manipulation", "psychology", "mind tricks"]
-    topic_tags = ["psychology facts", "narcissist", "self defense", "awareness", "did you know"]
+    topic_tags = ["psychology facts", "narcissist", "self defense", "awareness", "did you know",
+                  "body language", "gaslighting", "emotional intelligence"]
     
     if topic:
         topic_tag = topic.lower().replace("the ", "").replace(" — ", " ")
@@ -569,7 +571,8 @@ def create_and_upload_viral_short(youtube_client=None, history=None, voice=None,
                 mp3_path, srt_path,
                 background_path=bg_video,
                 output_path=final_video_path,
-                bg_start_time=bg_start
+                bg_start_time=bg_start,
+                hook_text=ai_headline
             )
             # Record the used segment so it won't be reused
             if bg_start is not None and rendered_video:
@@ -715,7 +718,8 @@ def create_inspirational_short(youtube_client=None, history=None, voice=None):
             background_path=bg_video,
             output_path=final_video_path,
             bg_start_time=None,
-            content_type="inspiration"
+            content_type="inspiration",
+            hook_text=headline
         )
     except Exception as e:
         print(f"  \u274C Error during video generation: {e}")
@@ -852,7 +856,8 @@ def create_wyr_short(youtube_client=None, history=None, voice=None):
             background_path=bg_video,
             output_path=final_video_path,
             bg_start_time=None,
-            content_type="would_you_rather"
+            content_type="would_you_rather",
+            hook_text=headline
         )
     except Exception as e:
         print(f"  \u274C Error during video generation: {e}")
@@ -988,7 +993,8 @@ def create_fake_text_short(youtube_client=None, history=None, voice=None):
             output_path=final_video_path,
             bg_start_time=None,
             content_type="fake_text",
-            messages=messages
+            messages=messages,
+            hook_text=headline
         )
     except Exception as e:
         print(f"  \u274C Error during video generation: {e}")
@@ -1122,7 +1128,8 @@ def create_dark_psych_short(youtube_client=None, history=None, voice=None):
             background_path=bg_video,
             output_path=final_video_path,
             bg_start_time=None,
-            content_type="dark_psychology"
+            content_type="dark_psychology",
+            hook_text=headline
         )
     except Exception as e:
         print(f"  \u274C Error during video generation: {e}")
@@ -1256,7 +1263,8 @@ def create_true_crime_short(youtube_client=None, history=None, voice=None):
             background_path=bg_video,
             output_path=final_video_path,
             bg_start_time=None,
-            content_type="true_crime"
+            content_type="true_crime",
+            hook_text=headline
         )
     except Exception as e:
         print(f"  \u274C Error during video generation: {e}")
@@ -1384,7 +1392,8 @@ def create_number_facts_short(youtube_client=None, history=None, voice=None):
             background_path=bg_video,
             output_path=final_video_path,
             bg_start_time=None,
-            content_type="story"
+            content_type="story",
+            hook_text=headline
         )
     except Exception as e:
         print(f"  ❌ Error during video generation: {e}")
@@ -1518,7 +1527,8 @@ def create_history_short(youtube_client=None, history=None, voice=None):
             background_path=bg_video,
             output_path=final_video_path,
             bg_start_time=None,
-            content_type="story"
+            content_type="story",
+            hook_text=headline
         )
     except Exception as e:
         print(f"  ❌ Error during video generation: {e}")
@@ -1655,7 +1665,8 @@ def create_quiz_short(youtube_client=None, history=None, voice=None):
             bg_start_time=None,
             content_type="quiz",
             popup_image_path=popup_image_path,
-            popup_trigger_word=answer_keyword
+            popup_trigger_word=answer_keyword,
+            hook_text=headline
         )
     except Exception as e:
         print(f"  ❌ Error during video generation: {e}")
@@ -1774,7 +1785,8 @@ def create_interactive_short(youtube_client=None, history=None, voice=None, form
             bg_start_time=None,
             content_type="quiz", # use quiz styling
             popup_image_path=popup_image_path,
-            popup_trigger_word=answer_keyword
+            popup_trigger_word=answer_keyword,
+            hook_text=headline
         )
     except Exception as e:
         print(f"  ❌ Error during video generation: {e}")

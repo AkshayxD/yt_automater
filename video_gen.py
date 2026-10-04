@@ -483,6 +483,119 @@ def create_chat_bubble_clips(messages, audio_duration):
     return clips
 
 
+# --- Hook Card Configuration ---
+# Duration of the hook card displayed before the voiceover starts
+HOOK_CARD_DURATION = 1.2  # seconds — long enough to read, short enough to not bore
+HOOK_CARD_FONT_SIZE = 72  # Slightly smaller than captions so multi-line text fits
+HOOK_CARD_MAX_WIDTH = 900  # Max width before wrapping
+HOOK_CARD_BG_OPACITY = 0.75  # Dark overlay opacity
+HOOK_CARD_Y_POS = 0.40  # Vertical center-ish position (fraction of screen height)
+
+
+def create_hook_card(hook_text, duration=HOOK_CARD_DURATION, content_type="story"):
+    """
+    Creates a 1.2-second "hook card" — a full-screen text overlay shown BEFORE
+    the voiceover starts. This gives the viewer a reason to stop scrolling.
+
+    The hook card shows the headline in large bold text on a semi-transparent
+    dark background. It uses a scale-up + fade-in animation for visual punch.
+
+    Args:
+        hook_text: The headline text to display (will be uppercased).
+        duration: How long the hook card is visible (seconds).
+        content_type: Visual style to match the content type.
+
+    Returns:
+        A list of moviepy clips (dark overlay + stroke text + fill text),
+        all timed from t=0 to t=duration.
+    """
+    if not hook_text or not hook_text.strip():
+        return [], 0.0
+
+    display_text = hook_text.strip().upper()
+
+    # Select text color based on content type
+    color_map = {
+        "inspiration": INSP_ACTIVE_COLOR,
+        "would_you_rather": WYR_ACTIVE_COLOR,
+        "fake_text": FT_ACTIVE_COLOR,
+        "dark_psychology": DP_ACTIVE_COLOR,
+        "true_crime": TC_ACTIVE_COLOR,
+        "quiz": QUIZ_ACTIVE_COLOR,
+    }
+    text_color = color_map.get(content_type, ACTIVE_COLOR)
+
+    # --- Dark overlay behind the hook text ---
+    dark_bg = (ColorClip(size=(VIDEO_WIDTH, VIDEO_HEIGHT), color=(0, 0, 0))
+               .set_opacity(HOOK_CARD_BG_OPACITY)
+               .set_duration(duration)
+               .set_start(0))
+
+    # --- Hook text (stroke + fill layers) ---
+    try:
+        stroke_clip = TextClip(
+            display_text,
+            fontsize=HOOK_CARD_FONT_SIZE,
+            color='black',
+            font=FONT_NAME,
+            stroke_color='black',
+            stroke_width=STROKE_WIDTH,
+            method='caption',
+            size=(HOOK_CARD_MAX_WIDTH, None),
+            align='center'
+        )
+        txt_clip = TextClip(
+            display_text,
+            fontsize=HOOK_CARD_FONT_SIZE,
+            color=text_color,
+            font=FONT_NAME,
+            stroke_color='black',
+            stroke_width=2,
+            method='caption',
+            size=(HOOK_CARD_MAX_WIDTH, None),
+            align='center'
+        )
+    except Exception as e:
+        print(f"  ⚠️ Hook card text rendering failed: {e}")
+        return [], 0.0
+
+    y_pos = int(VIDEO_HEIGHT * HOOK_CARD_Y_POS)
+
+    # --- Scale-up animation: starts at 0.85x and scales to 1.0x ---
+    def hook_scale(t):
+        if t < 0.15:
+            # Quick scale-up from 0.85 to 1.0 in first 150ms
+            progress = t / 0.15
+            return 0.85 + (0.15 * progress)
+        return 1.0
+
+    # --- Fade-in: opacity ramps from 0 to 1 in first 200ms ---
+    def hook_fade(t):
+        if t < 0.2:
+            return t / 0.2
+        # Fade out in last 200ms
+        if t > duration - 0.2:
+            return max(0, (duration - t) / 0.2)
+        return 1.0
+
+    stroke_clip = (stroke_clip
+                   .set_position(('center', y_pos))
+                   .set_start(0)
+                   .set_end(duration)
+                   .resize(hook_scale)
+                   .set_opacity(hook_fade))
+
+    txt_clip = (txt_clip
+                .set_position(('center', y_pos))
+                .set_start(0)
+                .set_end(duration)
+                .resize(hook_scale)
+                .set_opacity(hook_fade))
+
+    print(f"  🪝 Hook card: \"{display_text}\" ({duration}s)")
+    return [dark_bg, stroke_clip, txt_clip], duration
+
+
 def add_sfx_hits(audio_clip, words_data):
     """
     Scans the SRT data for dramatic words and inserts a programmatic impact SFX.
@@ -529,7 +642,7 @@ def add_sfx_hits(audio_clip, words_data):
 
 
 def create_video(audio_path, srt_path, background_path="assets/background_small.mp4",
-                 output_path="final_video.mp4", bg_start_time=None, content_type="story", messages=None, popup_image_path=None, popup_trigger_word=None):
+                 output_path="final_video.mp4", bg_start_time=None, content_type="story", messages=None, popup_image_path=None, popup_trigger_word=None, hook_text=None):
     """
     Assembles the final video by combining background, audio, and animated captions.
 
@@ -781,9 +894,68 @@ def create_video(audio_path, srt_path, background_path="assets/background_small.
             popup_clips.append(img)
             print(f"  🖼️ Added pop-up image at {popup_start:.2f}s (triggered by '{popup_trigger_word}') with stylish border & fade-in")
 
+    # --- Hook Card (pre-roll text overlay) ---
+    # Displays the headline as a bold text card for 1.2s BEFORE the voiceover,
+    # giving the viewer a reason to stop scrolling and stay.
+    # The hook card is layered ON TOP of the background video (which is already playing)
+    # so there's visual movement behind the text — not a static black screen.
+    hook_clips = []
+    if hook_text:
+        hook_clips, hook_dur = create_hook_card(hook_text, content_type=content_type)
+        if hook_clips:
+            # Shift ALL audio and subtitles forward by hook_dur so the voiceover
+            # starts AFTER the hook card fades out
+            from moviepy.audio.AudioClip import AudioClip as _AudioClipBase
+            
+            # Create silence for the hook card duration
+            silence_dur = hook_dur
+            silence = ColorClip(size=(1, 1), color=(0, 0, 0)).set_duration(silence_dur)
+            # We don't actually use silence as a clip — we shift the audio instead
+            
+            # Shift the mixed audio forward
+            if mixed_audio is not None:
+                # Pad the beginning with silence by creating a delayed version
+                from moviepy.audio.AudioClip import AudioArrayClip
+                silence_samples = int(44100 * silence_dur)
+                silence_array = np.zeros((silence_samples, 2))
+                silence_audio = AudioArrayClip(silence_array, fps=44100)
+                mixed_audio = CompositeAudioClip([silence_audio, mixed_audio.set_start(silence_dur)])
+            
+            # Re-attach the shifted audio
+            # Extend the background video to account for the hook card
+            total_duration = audio_duration + hook_dur
+            video_with_audio = bg_clip.set_duration(total_duration).set_audio(mixed_audio)
+            
+            # Shift all subtitle clips forward by hook_dur
+            shifted_subs = []
+            for clip in subtitle_clips:
+                original_start = clip.start
+                original_end = clip.end
+                shifted = clip.set_start(original_start + hook_dur).set_end(original_end + hook_dur)
+                shifted_subs.append(shifted)
+            subtitle_clips = shifted_subs
+            
+            # Shift bubble clips forward too
+            shifted_bubbles = []
+            for clip in bubble_clips:
+                original_start = clip.start
+                original_end = clip.end
+                shifted = clip.set_start(original_start + hook_dur).set_end(original_end + hook_dur)
+                shifted_bubbles.append(shifted)
+            bubble_clips = shifted_bubbles
+            
+            # Shift popup clips forward
+            shifted_popups = []
+            for clip in popup_clips:
+                original_start = clip.start
+                original_end = clip.end
+                shifted = clip.set_start(original_start + hook_dur).set_end(original_end + hook_dur)
+                shifted_popups.append(shifted)
+            popup_clips = shifted_popups
+
     # --- Composite Everything ---
     print("  Compositing layers...")
-    all_clips = [video_with_audio] + bubble_clips + popup_clips + subtitle_clips
+    all_clips = [video_with_audio] + bubble_clips + popup_clips + subtitle_clips + hook_clips
     final_video = CompositeVideoClip(all_clips, size=(VIDEO_WIDTH, VIDEO_HEIGHT))
 
     # --- Seamless Loop Ending ---

@@ -2,25 +2,21 @@ name: YouTube Shorts Automater
 
 on:
   schedule:
-    # 8 videos per day, 3 hours apart
-    - cron: '0 0 * * *'    # 12:00 AM UTC (5:30 AM IST)   → Story
-    - cron: '0 3 * * *'    # 3:00 AM UTC (8:30 AM IST)    → Would You Rather
-    - cron: '0 6 * * *'    # 6:00 AM UTC (11:30 AM IST)   → Quiz
-    - cron: '0 9 * * *'    # 9:00 AM UTC (2:30 PM IST)    → Fake Text
-    - cron: '0 12 * * *'   # 12:00 PM UTC (5:30 PM IST)   → Dark Psychology
-    - cron: '0 15 * * *'   # 3:00 PM UTC (8:30 PM IST)    → History
-    - cron: '0 18 * * *'   # 6:00 PM UTC (11:30 PM IST)   → True Crime
-    - cron: '0 21 * * *'   # 9:00 PM UTC (2:30 AM IST)    → Inspiration
+    # 4 videos per day — focused niche cluster (psychology/mind/interactive)
+    # Fewer, higher-quality videos in a tight niche = stronger algorithm signal
+    - cron: '0 3 * * *'    # 3:00 AM UTC (8:30 AM IST)    → Dark Psychology
+    - cron: '0 9 * * *'    # 9:00 AM UTC (2:30 PM IST)    → Quiz / Interactive
+    - cron: '0 12 * * *'   # 12:00 PM UTC (5:30 PM IST)   → Would You Rather
+    - cron: '0 15 * * *'   # 3:00 PM UTC (8:30 PM IST)    → Rotating (history/story/true_crime/number_facts)
   workflow_dispatch: # Allows manual triggering from the GitHub Actions tab
     inputs:
       content_type:
         description: 'Content type to generate'
         required: false
-        default: 'story'
+        default: 'dark_psychology'
         type: choice
         options:
           - story
-          - inspiration
           - would_you_rather
           - fake_text
           - dark_psychology
@@ -28,6 +24,10 @@ on:
           - number_facts
           - history
           - quiz
+          - two_truths
+          - riddle
+          - survive
+          - spot_fake
 
 jobs:
   generate_and_upload:
@@ -115,35 +115,45 @@ jobs:
           echo "type=${{ github.event.inputs.content_type }}" >> $GITHUB_OUTPUT
           echo "Using manual content type: ${{ github.event.inputs.content_type }}"
         else
-          # Auto-detect from cron schedule:
+          # Auto-detect from cron schedule (4 slots):
+          # 3:00 UTC → Dark Psychology (anchor content)
+          # 9:00 UTC → Quiz / Interactive (rotating)
+          # 12:00 UTC → Would You Rather
+          # 15:00 UTC → Rotating older categories
           HOUR=$(date -u +%H)
-          if [ "$HOUR" -eq 0 ] || [ "$HOUR" -eq 1 ]; then
-            echo "type=quiz" >> $GITHUB_OUTPUT
-            echo "0:00 UTC slot detected → Quiz"
-          elif [ "$HOUR" -eq 3 ] || [ "$HOUR" -eq 4 ]; then
-            echo "type=two_truths" >> $GITHUB_OUTPUT
-            echo "3:00 UTC slot detected → Two Truths and a Lie"
-          elif [ "$HOUR" -eq 6 ] || [ "$HOUR" -eq 7 ]; then
-            echo "type=riddle" >> $GITHUB_OUTPUT
-            echo "6:00 UTC slot detected → Riddle of the Day"
+          if [ "$HOUR" -eq 3 ] || [ "$HOUR" -eq 4 ]; then
+            echo "type=dark_psychology" >> $GITHUB_OUTPUT
+            echo "3:00 UTC slot → Dark Psychology (anchor)"
           elif [ "$HOUR" -eq 9 ] || [ "$HOUR" -eq 10 ]; then
-            echo "type=survive" >> $GITHUB_OUTPUT
-            echo "9:00 UTC slot detected → Would You Survive"
+            # Rotate interactive formats: quiz, two_truths, riddle, survive, spot_fake
+            DAY_OF_WEEK=$(date -u +%u)  # 1=Mon, 7=Sun
+            case $DAY_OF_WEEK in
+              1) echo "type=quiz" >> $GITHUB_OUTPUT; echo "9:00 UTC Mon → Quiz" ;;
+              2) echo "type=two_truths" >> $GITHUB_OUTPUT; echo "9:00 UTC Tue → Two Truths" ;;
+              3) echo "type=riddle" >> $GITHUB_OUTPUT; echo "9:00 UTC Wed → Riddle" ;;
+              4) echo "type=survive" >> $GITHUB_OUTPUT; echo "9:00 UTC Thu → Would You Survive" ;;
+              5) echo "type=spot_fake" >> $GITHUB_OUTPUT; echo "9:00 UTC Fri → Spot the Fake" ;;
+              6) echo "type=quiz" >> $GITHUB_OUTPUT; echo "9:00 UTC Sat → Quiz" ;;
+              7) echo "type=quiz" >> $GITHUB_OUTPUT; echo "9:00 UTC Sun → Quiz" ;;
+            esac
           elif [ "$HOUR" -eq 12 ] || [ "$HOUR" -eq 13 ]; then
-            echo "type=spot_fake" >> $GITHUB_OUTPUT
-            echo "12:00 UTC slot detected → Spot the Fake"
+            echo "type=would_you_rather" >> $GITHUB_OUTPUT
+            echo "12:00 UTC slot → Would You Rather"
           elif [ "$HOUR" -eq 15 ] || [ "$HOUR" -eq 16 ]; then
-            echo "type=random_old" >> $GITHUB_OUTPUT
-            echo "15:00 UTC slot detected → Random Old Category"
-          elif [ "$HOUR" -eq 18 ] || [ "$HOUR" -eq 19 ]; then
-            echo "type=random_old" >> $GITHUB_OUTPUT
-            echo "18:00 UTC slot detected → Random Old Category"
-          elif [ "$HOUR" -eq 21 ] || [ "$HOUR" -eq 22 ]; then
-            echo "type=random_old" >> $GITHUB_OUTPUT
-            echo "21:00 UTC slot detected → Random Old Category"
+            # Rotate: history, story, true_crime, number_facts, fake_text
+            DAY_OF_WEEK=$(date -u +%u)
+            case $DAY_OF_WEEK in
+              1) echo "type=history" >> $GITHUB_OUTPUT; echo "15:00 UTC Mon → History" ;;
+              2) echo "type=true_crime" >> $GITHUB_OUTPUT; echo "15:00 UTC Tue → True Crime" ;;
+              3) echo "type=number_facts" >> $GITHUB_OUTPUT; echo "15:00 UTC Wed → Number Facts" ;;
+              4) echo "type=story" >> $GITHUB_OUTPUT; echo "15:00 UTC Thu → Story" ;;
+              5) echo "type=fake_text" >> $GITHUB_OUTPUT; echo "15:00 UTC Fri → Fake Text" ;;
+              6) echo "type=dark_psychology" >> $GITHUB_OUTPUT; echo "15:00 UTC Sat → Dark Psychology (bonus)" ;;
+              7) echo "type=history" >> $GITHUB_OUTPUT; echo "15:00 UTC Sun → History" ;;
+            esac
           else
-            echo "type=random_old" >> $GITHUB_OUTPUT
-            echo "Unknown slot detected → Defaulting to Random Old Category"
+            echo "type=dark_psychology" >> $GITHUB_OUTPUT
+            echo "Unknown slot → Defaulting to Dark Psychology"
           fi
         fi
 
