@@ -35,7 +35,7 @@ THE PERFECT SCRIPT STRUCTURE:
 2. THE CHALLENGE (1-2 sentences): Present the riddle, the survival choices, or the two truths and a lie.
 3. COUNTDOWN (3 seconds): Simply output "Three... Two... One..."
 4. THE REVEAL (1 sentence): Give the answer enthusiastically.
-5. COMMENT BAIT (1 sentence): "Did you get it right? Tell me in the comments!"
+5. SUBSCRIBE CTA (1 sentence): "Did you get it right? Subscribe for daily challenges!"
 
 CRITICAL RULES:
 1. Keep it under 80 words EXACTLY.
@@ -51,7 +51,7 @@ DETAILS: {format_desc}
 Respond ONLY with a valid JSON object:
 {{
   "headline": "A punchy ALL CAPS title (4-8 words). Example: 'TWO TRUTHS AND A LIE'",
-  "script": "The full spoken script (under 80 words). Hook → Challenge → Three... Two... One... → Answer → Comment bait.",
+  "script": "The full spoken script (under 80 words). Hook → Challenge → Three... Two... One... → Answer → Subscribe CTA.",
   "answer_keyword": "The exact single word in the script where the answer is revealed (e.g., 'Spider')",
   "visual_prompt": "A highly detailed, cinematic 3D render representing the answer (e.g. 'A cinematic 3D render of a giant spider in a web')."
 }}"""

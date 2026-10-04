@@ -36,7 +36,7 @@ THE PERFECT SCRIPT STRUCTURE:
 2. SETUP (2-3 sentences): Briefly explain who the people are and what happened. The viewer knows NOTHING. Be crystal clear. Use names or clear roles ("my landlord", "my sister's boyfriend").
 3. ESCALATION (2-3 sentences): Build tension fast. Show the conflict. Make the viewer feel the unfairness, audacity, or stupidity.
 4. PART 1 CLIFFHANGER (If story is long): If the story requires a Part 2, end Part 1 abruptly at peak tension and say: "Part 2 is on my profile."
-5. COMMENT BAIT ENDING (For the final part): The LAST sentence of the final part must be an open question that forces the viewer to comment. Rotate between styles like: "Was I right? Tell me below.", "Comment KARMA if they deserved it.", "Rate this 1 to 10.", "Would YOU have done the same?", "Who was the real problem here?" No resolution.
+5. SUBSCRIBE CTA (For the final part): The LAST sentence of the final part must explicitly ask the viewer to subscribe. Rotate between styles like: "Subscribe so you never miss out.", "Hit that subscribe button for more.", "Subscribe if they deserved it."
 
 CRITICAL RULES FOR AUTHENTICITY:
 1. NO AI CLICHÉS: Never use "You won't believe", "Little did I know", "Plot twist!", "Fast forward to", "Let's just say", "brace yourself", "here's where it gets interesting".
@@ -51,13 +51,13 @@ CRITICAL RULES FOR AUTHENTICITY:
 
 USER_PROMPT_TEMPLATE = """Transform this Reddit story into a viral YouTube Shorts script.
 
-The viewer has NO context. The first word of the script must be a shock word or action verb — NOT "I", "My", or "So". End the final script with an open question to bait comments (rotate styles: "Was I wrong?", "Comment KARMA if they deserved it.", "Rate this 1-10.", etc.). If the story is long, split it into two parts.
+The viewer has NO context. The first word of the script must be a shock word or action verb — NOT "I", "My", or "So". End the final script with a subscribe CTA (rotate styles: "Subscribe if they were wrong.", "Hit that subscribe button for more.", etc.). If the story is long, split it into two parts.
 
 Respond ONLY with a valid JSON object in this exact format:
 {{
   "headline": "A punchy ALL CAPS confession-style title (5-9 words). Examples: 'I REPORTED MY OWN BOSS TO HR', 'SHE SOLD MY CAR WHILE I WAS ASLEEP'",
-  "script": "Part 1 (80-100 words). Starts dramatic. Builds tension. If there is a Part 2, end abruptly with 'Part 2 is on my profile.' If no Part 2, end with the comment-bait question.",
-  "script_part2": "(Optional) Part 2 (80-100 words). ONLY include if the original story is too long to fit in 100 words. Starts with a 1-sentence recap. Ends with the comment-bait question."
+  "script": "Part 1 (80-100 words). Starts dramatic. Builds tension. If there is a Part 2, end abruptly with 'Part 2 is on my profile.' If no Part 2, end with the subscribe CTA.",
+  "script_part2": "(Optional) Part 2 (80-100 words). ONLY include if the original story is too long to fit in 100 words. Starts with a 1-sentence recap. Ends with the subscribe CTA."
 }}
 
 Original Reddit title: {title}

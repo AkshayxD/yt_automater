@@ -70,7 +70,7 @@ THE PERFECT SCRIPT STRUCTURE:
 
 2. NARRATED CONVERSATION (5-8 exchanges, 3-30 seconds): Narrate the text exchange naturally as spoken word. Read each message with emotion — anger, disbelief, sarcasm. Add reactions between messages: "And then... they actually said THIS..." / "I couldn't believe the next message." Build tension with each message.
 
-3. REACTION + CTA (1-2 sentences, 30-35 seconds): Your genuine reaction, then force comments. "Was I wrong to block them?" / "Comment BLOCK or REPLY." / "What would YOU have texted back?"
+3. REACTION + SUBSCRIBE CTA (1-2 sentences, 30-35 seconds): Your genuine reaction, then force them to subscribe. "Subscribe if you agree." / "Hit that subscribe button for more insane texts." / "Subscribe so you don't miss tomorrow's drama."
 
 CRITICAL RULES:
 1. 90-110 words for the SCRIPT (narration) — what gets spoken by TTS.
@@ -90,7 +90,7 @@ THEME: {theme}
 Respond ONLY with a valid JSON object:
 {{
   "headline": "A punchy ALL CAPS title (4-8 words). Examples: 'MY EX TEXTED ME AT 3 AM', 'MY BOSS ACTUALLY SAID THIS'",
-  "script": "The full NARRATED script (90-110 words). Hook → Narrate the conversation → Reaction + CTA. This is what the TTS voice reads aloud.",
+  "script": "The full NARRATED script (90-110 words). Hook → Narrate the conversation → Reaction + Subscribe CTA. This is what the TTS voice reads aloud.",
   "messages": [
     {{"sender": "them", "text": "the message text"}},
     {{"sender": "me", "text": "the reply text"}},

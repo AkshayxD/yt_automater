@@ -31,7 +31,7 @@ THE PERFECT HISTORY SCRIPT STRUCTURE:
    Good openers: "Hitler and Stalin signed a secret deal that doomed Europe.", "A nuclear warhead accidentally fell on North Carolina.", "Smallpox was officially declared dead."
 2. THE EVENTS (3-4 sentences): Build the scene. Introduce the key people, the high stakes, and what went wrong or succeeded.
 3. THE AFTERMATH (1 sentence): State the consequence or final death toll/impact.
-4. COMMENT BAIT: Rotate styles: "Was this the worst mistake in history?", "Rate their sanity 1 to 10.", "Would you have survived? Tell me below."
+4. SUBSCRIBE CTA: Rotate styles: "Subscribe for more dark history.", "Hit that subscribe button if you would have survived.", "Subscribe so you don't miss tomorrow's story."
 
 RULES:
 1. 80-100 words EXACTLY.
@@ -49,7 +49,7 @@ Core Event Description: {description}
 Respond ONLY with valid JSON:
 {{
   "headline": "A punchy ALL CAPS title (5-8 words). Example: 'THE DAY AN ATOMBOMB DROPPED ON USA'",
-  "script": "The 80-100 word script following the structure (HOOK → EVENTS → AFTERMATH → COMMENT BAIT). Starts dramatic."
+  "script": "The 80-100 word script following the structure (HOOK → EVENTS → AFTERMATH → SUBSCRIBE CTA). Starts dramatic."
 }}"""
 
 

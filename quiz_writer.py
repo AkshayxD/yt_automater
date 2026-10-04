@@ -39,7 +39,7 @@ THE PERFECT SCRIPT STRUCTURE:
 2. THE QUESTION (1-2 sentences): Present the trivia question clearly.
 3. COUNTDOWN (3 seconds): Simply output "Three... Two... One..."
 4. THE REVEAL (1 sentence): Give the answer enthusiastically.
-5. COMMENT BAIT (1 sentence): "Did you get it right? Tell me in the comments!"
+5. SUBSCRIBE CTA (1 sentence): "Did you get it right? Subscribe for daily quizzes!"
 
 CRITICAL RULES:
 1. Keep it under 80 words EXACTLY.
@@ -57,7 +57,7 @@ TOPIC: {topic}
 Respond ONLY with a valid JSON object:
 {{
   "headline": "A punchy ALL CAPS title (4-8 words). Example: 'ONLY 1% CAN PASS THIS QUIZ'",
-  "script": "The full spoken script (under 80 words). Hook → Question → Three... Two... One... → Answer → Comment bait.",
+  "script": "The full spoken script (under 80 words). Hook → Question → Three... Two... One... → Answer → Subscribe CTA.",
   "answer_keyword": "The exact single word in the script where the answer is revealed (e.g., 'Nepal')",
   "visual_prompt": "A highly detailed, cinematic 3D render representing the answer (e.g. 'A beautiful 3D render of the flag of Nepal')."
 }}"""

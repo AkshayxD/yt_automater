@@ -72,7 +72,7 @@ THE PERFECT SCRIPT STRUCTURE:
 
 3. APPLICATION (1-2 sentences, 25-32 seconds): Tell the viewer how to spot it or use this knowledge. "Next time someone does X, now you know exactly what's happening." / "The counter? Do THIS instead."
 
-4. CTA (1 sentence, 32-38 seconds): "Save this. You'll need it." / "Follow for daily psychology." / "Share this with someone who needs to hear it." / "Comment the emoji that describes what you're feeling right now."
+4. CTA (1 sentence, 32-38 seconds): End with a strong hook to subscribe. Rotate styles: "Subscribe so you don't miss the next one.", "Hit that subscribe button for daily psychology.", "Subscribe to stay one step ahead."
 
 CRITICAL RULES:
 1. 80-100 words EXACTLY. Short = loopable = viral.
@@ -92,7 +92,7 @@ FIELD: {field}
 Respond ONLY with a valid JSON object:
 {{
   "headline": "A punchy ALL CAPS title (4-8 words). Examples: 'NEVER TRUST SOMEONE WHO DOES THIS', 'THIS TRICK CONTROLS YOUR MIND'",
-  "script": "The full spoken script (80-100 words). Hook → Fact → Application → CTA.",
+  "script": "The full spoken script (80-100 words). Hook → Fact → Application → Subscribe CTA.",
   "topic": "The psychology topic name (e.g., 'The Halo Effect')"
 }}"""
 
