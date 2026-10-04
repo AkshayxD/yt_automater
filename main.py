@@ -29,6 +29,7 @@ from interactive_writer import generate_interactive_script
 from background_manager import pick_background_segment, record_used_segment
 from long_form_writer import generate_script as generate_long_script
 from long_video_gen import create_long_video
+from ambient_video_gen import create_ambient_video
 
 # --- Directories ---
 VIDEOS_DIR = "videos_to_upload"
@@ -1899,6 +1900,49 @@ def create_and_upload_long_form(youtube_client=None, history=None, voice=None):
 
     return result
 
+def create_and_upload_ambient_form(youtube_client=None):
+    """Pipeline for 3-Hour Ambient Sleep/Wallpaper Videos"""
+    result = {'success': False, 'title': None, 'video_id': None, 'file_path': None}
+    
+    gen_result = create_ambient_video()
+    if not gen_result['success']:
+        return result
+        
+    rendered_video = gen_result['file_path']
+    headline = gen_result['title']
+    
+    description = f"{headline}\n\n#Sleep #Relaxing #WhiteNoise #Ambient #Wallpaper"
+    tags = ["sleep", "relaxing", "white noise", "ambient", "wallpaper", "focus", "study"]
+
+    if youtube_client:
+        print("  📤 Uploading to YouTube...")
+        try:
+            video_id = upload_video(
+                youtube=youtube_client,
+                file_path=rendered_video,
+                title=headline,
+                description=description,
+                category_id="22", # People & Blogs or 27 Education
+                keywords=tags,
+                privacy_status="public"
+            )
+
+            if video_id:
+                result['success'] = True
+                result['title'] = headline
+                result['video_id'] = video_id
+                result['file_path'] = rendered_video
+                dest_path = os.path.join(UPLOADED_DIR, os.path.basename(rendered_video))
+                shutil.move(rendered_video, dest_path)
+        except Exception as e:
+            print(f"  ❌ Failed to upload video: {e}")
+    else:
+        print(f"  ⏭️ Skipping upload (no YouTube client)")
+        result['success'] = True
+        result['title'] = headline
+        result['file_path'] = rendered_video
+
+    return result
 
 def run_pipeline():
     """
@@ -1931,8 +1975,8 @@ def run_pipeline():
                         help="Path to a text file containing a custom raw Reddit story (first line = title, rest = body) for test generation.")
     parser.add_argument("--schedule", type=str, choices=["morning", "afternoon", "evening"], default=None,
                         help="Wait until target time before uploading (morning=10AM, afternoon=2PM, evening=7PM)")
-    parser.add_argument("--format", type=str, choices=["short", "long"], default="short",
-                        help="Video format (short=Vertical <60s, long=Widescreen Essay 3-8m)")
+    parser.add_argument("--format", type=str, choices=["short", "long", "ambient"], default="short",
+                        help="Video format (short=Vertical <60s, long=Widescreen Essay 3-8m, ambient=3hr wallpaper)")
     parser.add_argument("--content-type", type=str, choices=["story", "inspiration", "would_you_rather", "fake_text", "dark_psychology", "true_crime", "number_facts", "history", "quiz", "two_truths", "riddle", "survive", "spot_fake", "random_old"], default="story",
                         help="Content type to generate")
 
@@ -2136,10 +2180,12 @@ def run_pipeline():
     successful = 0
     for i in range(args.num):
         print("\n" + "\u2500" * 60)
-        print(f"\U0001F4F9 VIDEO {i + 1} of {args.num} ({'LONG FORM' if args.format == 'long' else content_type.upper()})")
+        print(f"\U0001F4F9 VIDEO {i + 1} of {args.num} ({'LONG FORM' if args.format == 'long' else 'AMBIENT' if args.format == 'ambient' else content_type.upper()})")
         print("\u2500" * 60)
         
-        if args.format == "long":
+        if args.format == "ambient":
+            result = create_and_upload_ambient_form(youtube_client=youtube_client)
+        elif args.format == "long":
             result = create_and_upload_long_form(
                 youtube_client=youtube_client,
                 history=history,
