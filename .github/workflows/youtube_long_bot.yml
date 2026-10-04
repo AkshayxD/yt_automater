@@ -1,0 +1,104 @@
+name: YouTube Long-Form Automater
+
+on:
+  schedule:
+    # 4 long-form videos per day
+    - cron: '0 4 * * *'    # 4:00 AM UTC
+    - cron: '0 10 * * *'   # 10:00 AM UTC
+    - cron: '0 16 * * *'   # 4:00 PM UTC
+    - cron: '0 22 * * *'   # 10:00 PM UTC
+  workflow_dispatch: # Allows manual triggering
+
+jobs:
+  generate_and_upload:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v3
+
+    - name: Set up Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: '3.10'
+
+    - name: Install system dependencies (ImageMagick & FFmpeg)
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y imagemagick ffmpeg
+        
+        # Modify ImageMagick policy to allow text rendering (moviepy requires this on Linux)
+        sudo sed -i 's/<policy domain="path" rights="none" pattern="@\*"/<!--<policy domain="path" rights="none" pattern="@\*"\/>-->/g' /etc/ImageMagick-6/policy.xml
+
+    - name: Install Python dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install -r requirements.txt
+
+    - name: Restore upload history
+      uses: actions/cache@v3
+      with:
+        path: upload_history.json
+        key: upload-history-${{ github.run_number }}
+        restore-keys: |
+          upload-history-
+
+    - name: Restore used segments history
+      uses: actions/cache@v3
+      with:
+        path: used_segments.json
+        key: used-segments-${{ github.run_number }}
+        restore-keys: |
+          used-segments-
+
+    - name: Cache background assets
+      uses: actions/cache@v3
+      id: cache-bg
+      with:
+        path: assets
+        key: bg-assets-v3
+
+    - name: Download Montserrat font (if not cached)
+      run: |
+        mkdir -p assets/fonts
+        if [ ! -f assets/fonts/Montserrat-ExtraBold.ttf ]; then
+          echo "Downloading Montserrat ExtraBold from Google Fonts..."
+          wget -q "https://github.com/JulietaUla/Montserrat/raw/master/fonts/ttf/Montserrat-ExtraBold.ttf" -O assets/fonts/Montserrat-ExtraBold.ttf
+          echo "Font downloaded: $(ls -la assets/fonts/Montserrat-ExtraBold.ttf)"
+        else
+          echo "Montserrat font already cached."
+        fi
+        
+        # Install the font globally in Ubuntu system fonts directory for ImageMagick to access it by name
+        sudo mkdir -p /usr/share/fonts/truetype/montserrat
+        sudo cp assets/fonts/Montserrat-ExtraBold.ttf /usr/share/fonts/truetype/montserrat/
+        sudo fc-cache -f -v
+
+    - name: Download background music (if not cached)
+      run: |
+        python download_music.py
+
+    - name: Run Long-Form Bot Pipeline
+      env:
+        # Pulls the secret base64 token you set in GitHub Repo Settings
+        YOUTUBE_TOKEN_PICKLE_BASE64: ${{ secrets.YOUTUBE_TOKEN_PICKLE_BASE64 }}
+        # Gemini API key for AI script rewriting (free tier)
+        GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+        # How many videos to generate per run (default: 1)
+        NUM_VIDEOS: "1"
+      run: |
+        python main.py --format long
+
+    - name: Save updated history
+      uses: actions/cache/save@v3
+      if: always()
+      with:
+        path: upload_history.json
+        key: upload-history-${{ github.run_number }}
+
+    - name: Save used segments history
+      uses: actions/cache/save@v3
+      if: always()
+      with:
+        path: used_segments.json
+        key: used-segments-${{ github.run_number }}
