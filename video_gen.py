@@ -87,7 +87,7 @@ FT_STROKE_WIDTH = 10
 FT_POP_SCALE = 1.20
 FT_BUBBLE_ME_COLOR = (0, 122, 255)     # iMessage blue for "me"
 FT_BUBBLE_THEM_COLOR = (58, 58, 60)    # Dark gray for "them"
-FT_BUBBLE_TEXT_COLOR = 'white'
+FT_BUBBLE_TEXT_COLOR = '#00FF88'
 FT_BUBBLE_FONT_SIZE = 32               # Smaller — chat text
 FT_BG_DIR = os.path.join('assets', 'fake_text_bg')
 
@@ -115,7 +115,7 @@ DP_BG_DIR = os.path.join('assets', 'dark_psych_bg')
 
 # --- True Crime Style ---
 # Pale gray text — washed out, eerie, minimal animation for creepy stillness
-TC_ACTIVE_COLOR = '#CCCCCC'
+TC_ACTIVE_COLOR = '#00FF88'
 TC_FONT_SIZE = 80
 TC_STROKE_WIDTH = 8
 TC_POP_SCALE = 1.10               # Minimal pop — slow, creepy

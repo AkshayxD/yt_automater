@@ -30,6 +30,11 @@ from background_manager import pick_background_segment, record_used_segment
 from long_form_writer import generate_script as generate_long_script
 from long_video_gen import create_long_video
 from ambient_video_gen import create_ambient_video
+from gossip_video_gen import create_gossip_short
+from zodiac_writer import generate_zodiac_script
+from survival_writer import generate_survival_script
+from glitch_writer import generate_glitch_script
+from shower_writer import generate_shower_script
 
 # --- Directories ---
 VIDEOS_DIR = "videos_to_upload"
@@ -2134,11 +2139,16 @@ def run_pipeline():
     print(f"   Time: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
     content_type = args.content_type
     
-    if content_type == "random_old":
-        old_types = ["story", "would_you_rather", "fake_text", "dark_psychology", "history", "true_crime", "inspiration"]
+    if content_type in ["random", "random_old"]:
+        available_types = [
+            "story", "would_you_rather", "fake_text", "dark_psychology", 
+            "history", "true_crime", "inspiration", "number_facts", 
+            "quiz", "two_truths", "riddle", "survive", "spot_fake",
+            "gossip", "zodiac", "survival", "glitch", "shower"
+        ]
         import random
-        content_type = random.choice(old_types)
-        print(f"  🎲 Randomly selected old category: {content_type}")
+        content_type = random.choice(available_types)
+        print(f"  🎲 Randomly selected Shorts Roulette category: {content_type}")
 
     print(f"   Content Type: {content_type}")
     print("=" * 60)
@@ -2246,6 +2256,20 @@ def run_pipeline():
                 voice=args.voice,
                 format_type=content_type
             )
+        elif content_type == "gossip":
+            result = create_gossip_short(youtube_client=youtube_client, voice=args.voice)
+        elif content_type == "zodiac":
+            h, s, sign = generate_zodiac_script()
+            result = create_simple_ai_short(youtube_client, args.voice, h, s, "ZODIAC", ["shorts", "astrology", "zodiac", sign], f"Tag a {sign} who needs to hear this 👇", "zodiac_theme")
+        elif content_type == "survival":
+            h, s = generate_survival_script()
+            result = create_simple_ai_short(youtube_client, args.voice, h, s, "SURVIVAL", ["shorts", "survival", "lifehacks", "facts"], "Did you know any of these? Let me know below 👇", "survival_theme")
+        elif content_type == "glitch":
+            h, s = generate_glitch_script()
+            result = create_simple_ai_short(youtube_client, args.voice, h, s, "GLITCH", ["shorts", "glitch", "matrix", "creepy", "mystery"], "Has anything like this ever happened to you? 😳", "glitch_theme")
+        elif content_type == "shower":
+            h, s = generate_shower_script()
+            result = create_simple_ai_short(youtube_client, args.voice, h, s, "THOUGHTS", ["shorts", "showerthoughts", "mindblown", "facts"], "Which one blew your mind the most? 🤯", "shower_theme")
         else:
             result = create_and_upload_viral_short(
                 youtube_client=youtube_client,
