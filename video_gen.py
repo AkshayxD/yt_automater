@@ -569,28 +569,23 @@ def create_hook_card(hook_text, duration=HOOK_CARD_DURATION, content_type="story
             return 0.85 + (0.15 * progress)
         return 1.0
 
-    # --- Fade-in: opacity ramps from 0 to 1 in first 200ms ---
-    def hook_fade(t):
-        if t < 0.2:
-            return t / 0.2
-        # Fade out in last 200ms
-        if t > duration - 0.2:
-            return max(0, (duration - t) / 0.2)
-        return 1.0
-
+    # --- Fade in over first 200ms and fade out in last 200ms ---
+    fade_dur = min(0.2, duration / 3)
     stroke_clip = (stroke_clip
                    .set_position(('center', y_pos))
                    .set_start(0)
                    .set_end(duration)
                    .resize(hook_scale)
-                   .set_opacity(hook_fade))
+                   .crossfadein(fade_dur)
+                   .crossfadeout(fade_dur))
 
     txt_clip = (txt_clip
                 .set_position(('center', y_pos))
                 .set_start(0)
                 .set_end(duration)
                 .resize(hook_scale)
-                .set_opacity(hook_fade))
+                .crossfadein(fade_dur)
+                .crossfadeout(fade_dur))
 
     print(f"  🪝 Hook card: \"{display_text}\" ({duration}s)")
     return [dark_bg, stroke_clip, txt_clip], duration
@@ -935,12 +930,11 @@ def create_video(audio_path, srt_path, background_path="assets/background_small.
                 from moviepy.audio.AudioClip import AudioArrayClip
                 silence_samples = int(44100 * silence_dur)
                 silence_array = np.zeros((silence_samples, 2))
-                silence_audio = AudioArrayClip(silence_array, fps=44100)
-                mixed_audio = CompositeAudioClip([silence_audio, mixed_audio.set_start(silence_dur)])
-            
-            # Re-attach the shifted audio
-            # Extend the background video to account for the hook card
-            total_duration = audio_duration + hook_dur
+                silence_audio = AudioArrayClip(silence_array, fps=44100).set_duration(silence_dur)
+                total_duration = audio_duration + hook_dur
+                mixed_audio = CompositeAudioClip([silence_audio, mixed_audio.set_start(silence_dur)]).set_duration(total_duration)
+            else:
+                total_duration = audio_duration + hook_dur
             video_with_audio = bg_clip.set_duration(total_duration).set_audio(mixed_audio)
             
             # Shift all subtitle clips forward by hook_dur
