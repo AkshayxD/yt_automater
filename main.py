@@ -2147,10 +2147,12 @@ def run_pipeline():
     
     if content_type in ["random", "random_old"]:
         available_types = [
-            "story", "would_you_rather", "fake_text", "dark_psychology", 
-            "history", "true_crime", "inspiration", "number_facts", 
-            "quiz", "two_truths", "riddle", "survive", "spot_fake",
-            "gossip", "zodiac", "survival", "glitch", "shower"
+            "number_facts",      # Mind-blowing math, scale comparisons, probability
+            "history",           # Dramatic historical events from Wikipedia API
+            "would_you_rather",  # Polarizing dilemmas & impossible choices
+            "quiz",              # Rapid-fire knowledge & trivia challenges
+            "story",             # High-drama Reddit stories (AITA, revenge, TIFU)
+            "gossip",            # Trending celebrity / pop culture drama from Reddit
         ]
         import random
         content_type = random.choice(available_types)
