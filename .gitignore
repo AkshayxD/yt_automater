@@ -1,6 +1,7 @@
 # Secrets
 client_secret.json
 token.pickle
+token.pickle.bak
 token_base64.txt
 
 # Environment and Cache
