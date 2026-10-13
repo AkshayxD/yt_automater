@@ -1982,7 +1982,13 @@ def run_pipeline():
                         help="Wait until target time before uploading (morning=10AM, afternoon=2PM, evening=7PM)")
     parser.add_argument("--format", type=str, choices=["short", "long", "ambient"], default="short",
                         help="Video format (short=Vertical <60s, long=Widescreen Essay 3-8m, ambient=3hr wallpaper)")
-    parser.add_argument("--content-type", type=str, choices=["story", "inspiration", "would_you_rather", "fake_text", "dark_psychology", "true_crime", "number_facts", "history", "quiz", "two_truths", "riddle", "survive", "spot_fake", "random_old"], default="story",
+    content_type_choices = [
+        "random", "random_old", "story", "inspiration", "would_you_rather",
+        "fake_text", "dark_psychology", "true_crime", "number_facts",
+        "history", "quiz", "two_truths", "riddle", "survive", "spot_fake",
+        "gossip", "zodiac", "survival", "glitch", "shower"
+    ]
+    parser.add_argument("--content-type", type=str, choices=content_type_choices, default="story",
                         help="Content type to generate")
 
     args, unknown = parser.parse_known_args()
