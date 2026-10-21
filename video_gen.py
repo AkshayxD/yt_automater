@@ -45,10 +45,10 @@ else:
 # Used by SpeedyMorph, WrathOfGod, top Reddit narration & true crime channels
 # The yellow pops on ANY background color (dark or bright gameplay footage)
 #
-# NOTE: Using RGB tuple instead of hex — some ImageMagick versions parse
-# hex colors incorrectly, causing white/invisible text.
-ACTIVE_COLOR = '#00FF88'  # Changed to green per user request
-INACTIVE_COLOR = '#00FF88'
+# NOTE: Using named X11 color 'SpringGreen' (srgb(0,255,127) / #00FF7F) — 100% universal in ImageMagick
+# Hex codes like #00FF88 can fail in ImageMagick 6 command-line parsing and fallback to black.
+ACTIVE_COLOR = 'SpringGreen'  # Vibrant neon green per user request
+INACTIVE_COLOR = 'SpringGreen'
 ACTIVE_FONT_SIZE = 95              # Base size (±3px random per video for fingerprint variation)
 STROKE_WIDTH = 12                  # Thick black stroke for maximum contrast (MrBeast/Reddit style)
 STROKE_COLOR = 'black'
@@ -57,8 +57,8 @@ STROKE_COLOR = 'black'
 WORDS_PER_CHUNK = 2
 
 # --- Inspiration Style Overrides ---
-# White text with thinner stroke, smaller font — clean, premium, philosophical aesthetic
-INSP_ACTIVE_COLOR = '#00FF88'
+# Clean, premium, philosophical aesthetic
+INSP_ACTIVE_COLOR = 'SpringGreen'
 INSP_FONT_SIZE = 80
 INSP_STROKE_WIDTH = 8
 INSP_POP_SCALE = 1.15       # Subtler pop animation (vs 1.25 for story)
@@ -70,7 +70,7 @@ INSP_MUSIC_DIR = os.path.join('assets', 'inspiration_music')
 
 # --- Would You Rather Style ---
 # Vibrant green text with exaggerated pop — quiz/game show energy
-WYR_ACTIVE_COLOR = '#00FF88'
+WYR_ACTIVE_COLOR = 'SpringGreen'
 WYR_FONT_SIZE = 90
 WYR_STROKE_WIDTH = 10
 WYR_POP_SCALE = 1.30              # Exaggerated pop — energetic
@@ -81,27 +81,26 @@ WYR_BG_DIR = os.path.join('assets', 'wyr_bg')
 # --- Fake Text Style ---
 # Uses chat bubble rendering instead of standard subtitles (handled separately)
 # Standard subtitles still used for the narration track
-FT_ACTIVE_COLOR = '#00FF88'       # Light gray narration text
+FT_ACTIVE_COLOR = 'SpringGreen'
 FT_FONT_SIZE = 85
 FT_STROKE_WIDTH = 10
 FT_POP_SCALE = 1.20
 FT_BUBBLE_ME_COLOR = (0, 122, 255)     # iMessage blue for "me"
 FT_BUBBLE_THEM_COLOR = (58, 58, 60)    # Dark gray for "them"
-FT_BUBBLE_TEXT_COLOR = '#00FF88'
+FT_BUBBLE_TEXT_COLOR = 'SpringGreen'
 FT_BUBBLE_FONT_SIZE = 32               # Smaller — chat text
 FT_BG_DIR = os.path.join('assets', 'fake_text_bg')
 
 # --- Dark Psychology Style ---
-# Red accent text — danger/warning feel, authoritative
-DP_ACTIVE_COLOR = '#00FF88'
+# Authoritative style
+DP_ACTIVE_COLOR = 'SpringGreen'
 DP_FONT_SIZE = 85
 DP_STROKE_WIDTH = 10
 DP_POP_SCALE = 1.20
 DP_ZOOM_MIN = 1.02
 
 # --- Quiz Style ---
-# Vibrant orange/magenta text for fun game show feel
-QUIZ_ACTIVE_COLOR = '#00FF88'
+QUIZ_ACTIVE_COLOR = 'SpringGreen'
 QUIZ_FONT_SIZE = 90
 QUIZ_STROKE_WIDTH = 10
 QUIZ_POP_SCALE = 1.25
@@ -114,8 +113,7 @@ DP_ZOOM_MAX = 1.05
 DP_BG_DIR = os.path.join('assets', 'dark_psych_bg')
 
 # --- True Crime Style ---
-# Pale gray text — washed out, eerie, minimal animation for creepy stillness
-TC_ACTIVE_COLOR = '#00FF88'
+TC_ACTIVE_COLOR = 'SpringGreen'
 TC_FONT_SIZE = 80
 TC_STROKE_WIDTH = 8
 TC_POP_SCALE = 1.10               # Minimal pop — slow, creepy
@@ -268,16 +266,14 @@ def create_subtitle_clips(chunks, y_pos=None, font_size=None, content_type="stor
         )
 
         # --- Text layer (main fill, NO stroke) ---
-        # Add a very thin 2px black stroke as an anti-aliasing buffer.
-        # This completely absorbs any jagged edges/fringes on Linux transparent backgrounds
-        # without shrinking the inner fill readability.
+        # The black stroke is rendered on stroke_clip underneath.
+        # Do NOT apply stroke_color here — ImageMagick 6 paints the stroke over the fill,
+        # which overwrites the green color and makes the text solid black!
         txt_clip = TextClip(
             display_text,
             fontsize=font_size,
-            color=text_color,         # Yellow for story, white for inspiration
+            color=text_color,         # Pure green fill
             font=FONT_NAME,
-            stroke_color='black',
-            stroke_width=2,
             method='label',           
             align='center'
         )
@@ -303,8 +299,6 @@ def create_subtitle_clips(chunks, y_pos=None, font_size=None, content_type="stor
                 fontsize=font_size,
                 color=text_color,
                 font=FONT_NAME,
-                stroke_color='black',
-                stroke_width=2,
                 method='caption',
                 size=(SUBTITLE_MAX_WIDTH, None),
                 align='center'
@@ -556,8 +550,6 @@ def create_hook_card(hook_text, duration=HOOK_CARD_DURATION, content_type="story
             fontsize=HOOK_CARD_FONT_SIZE,
             color=text_color,
             font=FONT_NAME,
-            stroke_color='black',
-            stroke_width=2,
             method='caption',
             size=(HOOK_CARD_MAX_WIDTH, None),
             align='center'
