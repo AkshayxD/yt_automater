@@ -135,3 +135,17 @@ jobs:
       run: |
         python main.py --content-type ${{ steps.content-type.outputs.type }}
 
+    - name: Save updated history
+      uses: actions/cache/save@v3
+      if: always()
+      with:
+        path: upload_history.json
+        key: upload-history-${{ github.run_number }}
+
+    - name: Save used segments history
+      uses: actions/cache/save@v3
+      if: always()
+      with:
+        path: used_segments.json
+        key: used-segments-${{ github.run_number }}
+
