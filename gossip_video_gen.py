@@ -26,12 +26,13 @@ os.makedirs(TEMP_DIR, exist_ok=True)
 os.makedirs(VIDEOS_DIR, exist_ok=True)
 os.makedirs(UPLOADED_DIR, exist_ok=True)
 
-def get_gossip_story():
+def get_gossip_story(history=None):
     """
     Scrapes a trending celebrity gossip story using free Reddit RSS feeds.
     """
     headers = {'User-Agent': 'python:yt_automater_gossip:v1.0'}
     subreddits_to_try = random.sample(GOSSIP_SUBREDDITS, min(3, len(GOSSIP_SUBREDDITS)))
+    uploaded_titles = set(history.get('uploaded_titles', [])) if history else set()
 
     for subreddit in subreddits_to_try:
         url = f"https://www.reddit.com/r/{subreddit}/top/.rss?t=day"
@@ -49,8 +50,17 @@ def get_gossip_story():
             if not entries:
                 continue
                 
-            # Pick a highly upvoted post (usually in the top 3)
-            entry = random.choice(entries[:3])
+            # Filter out already uploaded titles
+            valid_entries = []
+            for e in entries[:6]:
+                t = e.find('atom:title', ns)
+                if t is not None and t.text and clean_text(t.text) not in uploaded_titles:
+                    valid_entries.append(e)
+
+            if not valid_entries:
+                valid_entries = entries[:3]
+
+            entry = random.choice(valid_entries)
             title = entry.find('atom:title', ns).text
             
             content_elem = entry.find('atom:content', ns)
@@ -124,8 +134,8 @@ def download_caricature_image(celeb_description):
     prompt = f"A vibrant, highly detailed 3D cartoon caricature of {celeb_description}, colorful background, expressive, stylized, in the style of a modern animated movie"
     safe_prompt = urllib.parse.quote(prompt)
     
-    # 9:16 aspect ratio
-    image_url = f"https://image.pollinations.ai/prompt/{safe_prompt}?width=1080&height=1920&nologo=true"
+    # 1:1 square ratio for clean card overlay
+    image_url = f"https://image.pollinations.ai/prompt/{safe_prompt}?width=1024&height=1024&nologo=true"
     image_path = os.path.join(TEMP_DIR, "celeb_caricature.jpg")
     
     print(f"  🎨 Generating AI Caricature: {celeb_description}")
@@ -154,7 +164,7 @@ def generate_gossip_metadata(headline, script_text, subreddit):
     tags = ["shorts", "celebrity gossip", "pop culture", "drama", "hollywood", "trending", "news"]
     return short_title, description, tags
 
-def create_gossip_short(youtube_client=None, voice=None):
+def create_gossip_short(youtube_client=None, history=None, voice=None):
     """
     The main pipeline for Gossip Shorts.
     """
@@ -162,7 +172,7 @@ def create_gossip_short(youtube_client=None, voice=None):
     print("\n🎬 Starting Gossip Short Generation...")
     
     # 1. Fetch Gossip
-    title, body, subreddit = get_gossip_story()
+    title, body, subreddit = get_gossip_story(history=history)
     print(f"  📰 Scraped from r/{subreddit}: {title[:60]}...")
     
     # 2. Rewrite & Extract Visual Description
@@ -176,7 +186,7 @@ def create_gossip_short(youtube_client=None, voice=None):
     audio_file = os.path.join(TEMP_DIR, "audio.mp3")
     subs_file = os.path.join(TEMP_DIR, "subs.srt")
     
-    mp3_path, srt_path = generate_audio_and_subs(full_spoken_text, audio_file, subs_file, voice=voice)
+    mp3_path, srt_path = generate_audio_and_subs(full_spoken_text, audio_file, subs_file, voice=voice, content_type="gossip")
     if not mp3_path or not srt_path:
         print("  ❌ Failed to generate audio. Aborting.")
         return result
@@ -196,18 +206,14 @@ def create_gossip_short(youtube_client=None, voice=None):
         bg_video = os.path.join(ASSETS_DIR, "background_small.mp4")
         
     try:
-        # We pass the caricature to create_video if it supports it, 
-        # or we could overlay it via ffmpeg. For now, since we haven't added 
-        # custom image overlay logic to video_gen.py yet, we'll let it use the gameplay background 
-        # as standard. The text itself will tell the gossip!
-        # (A future update to video_gen.py could accept `popup_image_path=caricature_path`)
         rendered_video = create_video(
             mp3_path, srt_path,
             background_path=bg_video,
             output_path=final_video_path,
             bg_start_time=bg_start,
             hook_text=ai_headline,
-            content_type="story"  # Use standard yellow/green captions
+            content_type="gossip",
+            popup_image_path=caricature_path
         )
         if bg_start is not None and rendered_video:
             from moviepy.editor import AudioFileClip
@@ -240,6 +246,21 @@ def create_gossip_short(youtube_client=None, voice=None):
                 
                 shutil.move(rendered_video, os.path.join(UPLOADED_DIR, os.path.basename(rendered_video)))
                 print(f"  Moved video to {UPLOADED_DIR}/")
+                
+                if history is not None:
+                    history.setdefault('uploaded_titles', []).append(title)
+                    history.setdefault('videos', []).append({
+                        'title': short_title,
+                        'video_id': video_id,
+                        'uploaded_at': datetime.now().isoformat(),
+                        'content_type': 'gossip'
+                    })
+                    try:
+                        import json
+                        with open("upload_history.json", "w", encoding="utf-8") as hf:
+                            json.dump(history, hf, indent=2)
+                    except Exception as he:
+                        print(f"  ⚠️ Warning saving history: {he}")
                 
                 # Pin Comment
                 comment = random.choice([

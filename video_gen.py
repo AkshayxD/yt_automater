@@ -237,6 +237,12 @@ def create_subtitle_clips(chunks, y_pos=None, font_size=None, content_type="stor
         pop_scale = QUIZ_POP_SCALE
         if font_size is None:
             font_size = QUIZ_FONT_SIZE
+    elif content_type == "gossip":
+        text_color = ACTIVE_COLOR
+        stroke_w = STROKE_WIDTH
+        pop_scale = 1.25
+        if font_size is None:
+            font_size = 72
     else:
         text_color = ACTIVE_COLOR
         stroke_w = STROKE_WIDTH
@@ -522,6 +528,7 @@ def create_hook_card(hook_text, duration=HOOK_CARD_DURATION, content_type="story
         "dark_psychology": DP_ACTIVE_COLOR,
         "true_crime": TC_ACTIVE_COLOR,
         "quiz": QUIZ_ACTIVE_COLOR,
+        "gossip": ACTIVE_COLOR,
     }
     text_color = color_map.get(content_type, ACTIVE_COLOR)
 
@@ -826,6 +833,7 @@ def create_video(audio_path, srt_path, background_path="assets/background_small.
         "dark_psychology": 0.52,
         "true_crime": 0.50,
         "quiz": 0.50,
+        "gossip": 0.68,
     }
     if video_format == "long":
         caption_y = int(1080 * 0.85)  # Lower third
@@ -843,6 +851,7 @@ def create_video(audio_path, srt_path, background_path="assets/background_small.
         "dark_psychology": DP_FONT_SIZE,
         "true_crime": TC_FONT_SIZE,
         "quiz": QUIZ_FONT_SIZE,
+        "gossip": 72,
     }
     base_size = font_size_map.get(content_type, ACTIVE_FONT_SIZE)
     vid_font_size = base_size + random.randint(-3, 3)
@@ -867,44 +876,50 @@ def create_video(audio_path, srt_path, background_path="assets/background_small.
         print("  Generating chat bubbles...")
         bubble_clips = create_chat_bubble_clips(messages, audio_duration)
 
-    # --- Pop-up Image (for Quiz answers) ---
+    # --- Pop-up / Overlay Image (for Quiz answers or Gossip celebrity visuals) ---
     popup_clips = []
-    if popup_image_path and popup_trigger_word and words:
+    if popup_image_path and os.path.exists(popup_image_path):
         from moviepy.editor import ImageClip
-        trigger_lower = popup_trigger_word.lower()
-        popup_start = None
-        for w in words:
-            if trigger_lower in w['text'].lower():
-                popup_start = w['start']
-                break
+        if popup_trigger_word and words:
+            trigger_lower = popup_trigger_word.lower()
+            popup_start = None
+            for w in words:
+                if trigger_lower in w['text'].lower():
+                    popup_start = w['start']
+                    break
+        else:
+            popup_start = 0.0
         
-        if popup_start is not None and os.path.exists(popup_image_path):
+        if popup_start is not None:
             img = ImageClip(popup_image_path)
             
-            # Make it slightly smaller to leave room for the border
-            img = img.resize(width=int(VIDEO_WIDTH * 0.75))
-            
-            # Add a stylish thick white border (like a polaroid/card)
-            from moviepy.video.fx.all import margin
-            img = img.margin(color=(255, 255, 255), top=15, bottom=15, left=15, right=15)
-            
-            # Add a slow, continuous zoom-in effect to keep it dynamic
-            def popup_zoom(t):
-                # t goes from 0 to its duration
-                # Zoom from 1.0x to 1.05x
-                progress = t / max(audio_duration, 0.1)
-                return 1.0 + (0.05 * progress)
-            img = img.resize(popup_zoom)
+            if content_type == "gossip":
+                # Celebrity caricature visual card positioned in upper center
+                img = img.resize(width=int(VIDEO_WIDTH * 0.68))
+                from moviepy.video.fx.all import margin
+                img = img.margin(color=(255, 255, 255), top=12, bottom=12, left=12, right=12)
+                img = img.set_position(('center', int(VIDEO_HEIGHT * 0.16)))
+                img = img.set_start(popup_start)
+                img = img.set_end(audio_duration)
+                img = img.crossfadein(0.3)
+                popup_clips.append(img)
+                print(f"  ⭐ Added celebrity visual card overlay at y={int(VIDEO_HEIGHT * 0.16)}px")
+            else:
+                img = img.resize(width=int(VIDEO_WIDTH * 0.75))
+                from moviepy.video.fx.all import margin
+                img = img.margin(color=(255, 255, 255), top=15, bottom=15, left=15, right=15)
+                
+                def popup_zoom(t):
+                    progress = t / max(audio_duration, 0.1)
+                    return 1.0 + (0.05 * progress)
+                img = img.resize(popup_zoom)
 
-            img = img.set_position(('center', 'center'))
-            img = img.set_start(popup_start)
-            img = img.set_end(audio_duration)
-            
-            # Smooth fade in over 0.25 seconds
-            img = img.crossfadein(0.25)
-            
-            popup_clips.append(img)
-            print(f"  🖼️ Added pop-up image at {popup_start:.2f}s (triggered by '{popup_trigger_word}') with stylish border & fade-in")
+                img = img.set_position(('center', 'center'))
+                img = img.set_start(popup_start)
+                img = img.set_end(audio_duration)
+                img = img.crossfadein(0.25)
+                popup_clips.append(img)
+                print(f"  🖼️ Added pop-up image at {popup_start:.2f}s with stylish border & fade-in")
 
     # --- Hook Card (pre-roll text overlay) ---
     # Displays the headline as a bold text card for 1.2s BEFORE the voiceover,

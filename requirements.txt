@@ -3,7 +3,7 @@ google-auth-httplib2
 google-auth-oauthlib
 google-genai
 requests
-edge-tts
+edge-tts>=7.3.1
 moviepy==1.0.3
 Pillow==9.5.0
 numpy

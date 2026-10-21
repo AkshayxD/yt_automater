@@ -2265,7 +2265,7 @@ def run_pipeline():
                 format_type=content_type
             )
         elif content_type == "gossip":
-            result = create_gossip_short(youtube_client=youtube_client, voice=args.voice)
+            result = create_gossip_short(youtube_client=youtube_client, history=history, voice=args.voice)
         elif content_type == "zodiac":
             h, s, sign = generate_zodiac_script()
             result = create_simple_ai_short(youtube_client, args.voice, h, s, "ZODIAC", ["shorts", "astrology", "zodiac", sign], f"Tag a {sign} who needs to hear this 👇", "zodiac_theme")

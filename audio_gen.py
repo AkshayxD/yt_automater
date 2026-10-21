@@ -67,6 +67,14 @@ TRUE_CRIME_VOICE_POOL = [
 ]
 TRUE_CRIME_TTS_RATE = "+0%"  # Slowest = maximum dread
 
+# Celebrity Gossip — dramatic, expressive storytelling
+GOSSIP_VOICE_POOL = [
+    ("en-US-AriaNeural", "Expressive dramatic female — gossip host"),
+    ("en-US-JennyNeural", "Conversational female narrator"),
+    ("en-US-GuyNeural", "Upbeat engaging male narrator"),
+]
+GOSSIP_TTS_RATE = "+10%"
+
 
 async def _generate(text, output_mp3, output_srt, voice, rate):
     """
@@ -134,6 +142,9 @@ def generate_audio_and_subs(text, output_mp3="temp/audio.mp3", output_srt="temp/
     elif content_type == "true_crime":
         pool = TRUE_CRIME_VOICE_POOL
         rate = TRUE_CRIME_TTS_RATE
+    elif content_type == "gossip":
+        pool = GOSSIP_VOICE_POOL
+        rate = GOSSIP_TTS_RATE
     else:
         pool = VOICE_POOL
         rate = TTS_RATE
